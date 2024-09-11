@@ -1,0 +1,17 @@
+set(
+    COMPONENT_SRCS 
+        "station_mode.cc"
+    )
+
+set(
+    COMPONENT_REQUIRES 
+        "esp_wifi" 
+        "log"
+        "lwip" 
+        "nvs_flash"
+        "json"
+    )
+
+set(COMPONENT_ADD_INCLUDEDIRS "." )  # For all the .h files
+
+register_component()

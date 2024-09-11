@@ -1,0 +1,19 @@
+set(
+    COMPONENT_SRCS 
+        "firestore_utils.cc"
+        "firebase_auth.cc"
+    )
+
+set(
+    COMPONENT_REQUIRES 
+        "esp_http_client" 
+        "freertos" 
+        "log"
+        "esp-tls"
+        "json"
+    )
+
+set(COMPONENT_ADD_INCLUDEDIRS "." )  # For all the .h files
+
+
+register_component()

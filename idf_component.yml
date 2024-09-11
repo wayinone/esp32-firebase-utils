@@ -1,0 +1,13 @@
+version: "0.0.1"
+maintainers: "Wayne Wang"
+description: "API wrappers for Firebase Authentication, and Firestore IO."
+url: "https://github.com/wayinone/esp32-firebase-utils"
+license: "MIT"
+repository: "https://github.com/wayinone/esp32-firebase-utils.git"
+repository_info:
+  path: "components/esp32_firebase_utils"
+tags:
+  - firestore
+  - firebase
+examples:
+  - path: main
