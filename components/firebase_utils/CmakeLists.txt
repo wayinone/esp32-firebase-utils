@@ -1,0 +1,19 @@
+set(
+    COMPONENT_SRCS 
+        "firestore_utils.cc"
+    )
+
+set(
+    COMPONENT_REQUIRES 
+        "esp_http_client" 
+        "freertos" 
+        "log"
+        "esp-tls"
+        "json"
+    )
+
+set(COMPONENT_ADD_INCLUDEDIRS "." )  # For all the .h files
+
+set(COMPONENT_EMBED_FILES "googleapis_com_chain.pem")
+
+register_component()
