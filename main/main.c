@@ -44,6 +44,17 @@ void app_main(void)
     firestore_createDocument("dev/develop/devices", "test_record_21", reading_document, access_token);
 
 
+    /**
+    record format:
+    {
+        "fields": {
+            "record": {
+                <timestamp>: {integer_value: <reading>}
+            }
+        }
+    }
+    */
+    
 
 
 
