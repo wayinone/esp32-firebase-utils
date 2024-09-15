@@ -9,10 +9,13 @@ static const char *TAG = "FIREBASE_COMMON";
 // the data might be chunked and the event might be called multiple times.
 char *current_receive_buffer_position = (char *)RECEIVE_BODY; // initialize the buffer position to the start of the buffer
 
-void return_received_data_buffer(void)
+void reset_received_buffer_position(void)
 {
+    // write the null terminator to the buffer
+    *current_receive_buffer_position = '\0';
     current_receive_buffer_position = RECEIVE_BODY; // reset the buffer position to the beginning of the buffer
-    ESP_LOGI(TAG, "Resetting reveived buffer position");
+    
+    ESP_LOGI(TAG, "Resetting received buffer position");
 }
 
 esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
@@ -21,7 +24,7 @@ esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
     {
     case HTTP_EVENT_ERROR:
         ESP_LOGI(TAG, "HTTP error");
-        return_received_data_buffer();
+        reset_received_buffer_position();
         break;
     case HTTP_EVENT_ON_CONNECTED:
         ESP_LOGI(TAG, "HTTP connected to server");
@@ -48,15 +51,15 @@ esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
         break;
     case HTTP_EVENT_ON_FINISH:
         ESP_LOGI(TAG, "HTTP session is finished");
-        return_received_data_buffer();
+        reset_received_buffer_position();
         break;
     case HTTP_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "HTTP connection is closed");
-        return_received_data_buffer();
+        reset_received_buffer_position();
         break;
     case HTTP_EVENT_REDIRECT:
         ESP_LOGI(TAG, "HTTP redirect");
-        return_received_data_buffer();
+        reset_received_buffer_position();
         break;
     }
     return ESP_OK;
