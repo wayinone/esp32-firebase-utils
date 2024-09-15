@@ -4,10 +4,10 @@
  * https://firebase.google.com/docs/firestore/reference/rest/v1beta1/projects.databases.documents/
  */
 
+#include "firebase_common.h" // import firestore_http_event_handler
 #include "firestore_utils.h"
 #include <string.h>
 #include "esp_log.h"
-#include "esp_http_client.h"
 #include "cJSON.h"
 
 
@@ -29,6 +29,9 @@ extern const char firestore_api_pem_end[] asm("_binary_googleapis_com_chain_pem_
 extern const char get_token_api_pem_start[] asm("_binary_secure_token_googleapis_chain_pem_start");
 extern const char get_token_api_pem_end[] asm("_binary_secure_token_googleapis_chain_pem_end");
 
+const char* CONTENT_TYPE_JSON = "application/json";
+const char* CONTENT_TYPE_FORM = "application/x-www-form-urlencoded";
+
 
 static const int HTTP_PATH_SIZE = 256;
 
@@ -41,7 +44,7 @@ static char RECEIVE_BODY[RECEIVE_BUF_SIZE];
 
 
 
-esp_err_t _firestore_http_event_handler(esp_http_client_event_t *pstEvent);
+esp_err_t firestore_http_event_handler(esp_http_client_event_t *pstEvent);
 
 /**
  * @brief Get the value from json object
@@ -86,9 +89,6 @@ esp_err_t get_path(char *firestore_path, char *full_path)
     }
 }
 
-const char* CONTENT_TYPE_JSON = "application/json";
-const char* CONTENT_TYPE_FORM = "application/x-www-form-urlencoded";
-
 /**
  * @brief Make an abstract API request to API
  *
@@ -121,7 +121,7 @@ esp_err_t make_abstract_api_request(
     esp_http_client_config_t http_config = {
         .host = hostname,
         .cert_pem = host_certificate, // the certificate of the server (can be downloaded from the browser)
-        .event_handler = _firestore_http_event_handler,
+        .event_handler = firestore_http_event_handler,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .buffer_size = RECEIVE_BUF_SIZE,
         .buffer_size_tx = SEND_BUF_SIZE,
@@ -262,95 +262,3 @@ esp_err_t firestore_patch(char *firebase_path, char *http_body, char *token)
 }
 
 
-
-esp_err_t firebase_get_access_token_from_refresh_token(const char *refresh_token, char *access_token) {
-    /**
-    The equivalent curl command is:
-
-    curl -X POST \
-    -H 'Content-Type: application/x-www-form-urlencoded' \
-    --data 'grant_type=refresh_token&refresh_token=[refresh_token]' \
-    'https://securetoken.googleapis.com/v1/token?key=[api_key]'
-     */
-
-    esp_err_t result = ESP_OK;
-
-    char full_path[] = "/v1/token?key=" FIREBASE_API_KEY;
-
-    char http_body[] = "grant_type=refresh_token&refresh_token=" FIREBASE_REFRESH_TOKEN;
-
-    char receive_http_body[RECEIVE_BUF_SIZE];
-
-    result = make_abstract_api_request(
-        FIREBASE_TOKEN_REQUEST_HOSTNAME, 
-        get_token_api_pem_start,
-        full_path, 
-        HTTP_METHOD_POST, 
-        http_body, 
-        CONTENT_TYPE_FORM,
-        NULL, 
-        receive_http_body);
-
-    if (result != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Failed to get access token from refresh token");
-        return ESP_FAIL;
-    }
-
-    // print the receive_http_body
-    // ESP_LOGI(TAG, "Response: %s", receive_http_body);
-
-    // get_value_from_json(receive_http_body, "id_token", access_token);
-
-    // if (strlen(access_token) == 0)
-    // {
-    //     ESP_LOGE(TAG, "Failed to get access token from refresh token");
-    //     // print the receive_http_body
-    //     ESP_LOGE(TAG, "Response: %s", receive_http_body);
-
-    //     return ESP_FAIL;
-    // }
-    
-    return ESP_OK;
-}
-
-
-esp_err_t _firestore_http_event_handler(esp_http_client_event_t *pstEvent)
-{
-    switch (pstEvent->event_id)
-    {
-    case HTTP_EVENT_ERROR:
-        ESP_LOGI(TAG, "HTTP error");
-        break;
-    case HTTP_EVENT_ON_CONNECTED:
-        ESP_LOGI(TAG, "HTTP connected to server");
-        break;
-    case HTTP_EVENT_HEADERS_SENT:
-        ESP_LOGI(TAG, "All HTTP headers are sent to server");
-        break;
-    case HTTP_EVENT_ON_HEADER:
-        ESP_LOGI(TAG, "HTTP header received");
-        break;
-    case HTTP_EVENT_ON_DATA:
-        ESP_LOGI(TAG, "HTTP data received");
-        /* If user_data buffer is configured, copy the response into it */
-        if (pstEvent->user_data)
-        {
-            strncpy((char *)pstEvent->user_data,
-                    (char *)pstEvent->data,
-                    pstEvent->data_len);
-        }
-        /* Else you can copy the response into a global HTTP buffer */
-        break;
-    case HTTP_EVENT_ON_FINISH:
-        ESP_LOGI(TAG, "HTTP session is finished");
-        break;
-    case HTTP_EVENT_DISCONNECTED:
-        ESP_LOGI(TAG, "HTTP connection is closed");
-        break;
-    case HTTP_EVENT_REDIRECT:
-        ESP_LOGI(TAG, "HTTP redirect");
-        break;
-    }
-    return ESP_OK;
-}

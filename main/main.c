@@ -1,14 +1,9 @@
 #include <stdio.h>
 #include "firestore_utils.h"
+#include "firebase_auth.h"
 #include "station_mode.h"
-#include "esp_err.h"
 #include "esp_timer.h"
-#include "cJSON.h"
 
-
-
-#define FIREBASE_USER_EMAIL "xitydyxo@pelagius.net"
-#define FIREBASE_USER_PASSWORD "abc1234"
 
 #define device_id "abcde"
 
@@ -21,6 +16,7 @@ void app_main(void)
     firebase_get_access_token_from_refresh_token(CONFIG_FIREBASE_REFRESH_TOKEN, access_token);
 
     printf("Access token: %s\n", access_token);
+
 
 
     // char *reading_document_format = 
