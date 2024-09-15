@@ -1,12 +1,12 @@
 #include "firebase_common.h"
 #include "esp_log.h"
 
-static const char *TAG = "FIRESTORE_COMMON";
+static const char *TAG = "FIREBASE_COMMON";
 
 // Note that the RECEIVE_BODY is defined in firebase_common.h and is a global variable
 // The RECEIVE_BODY is used to store the received data from the firestore server
 // The following defines the buffer position to write the received data, this is because
-// the data might be chunked and the event might be called multiple times. 
+// the data might be chunked and the event might be called multiple times.
 char *current_receive_buffer_position = (char *)RECEIVE_BODY; // initialize the buffer position to the start of the buffer
 
 void return_received_data_buffer(void)
@@ -38,8 +38,8 @@ esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
         ESP_LOGD(TAG, "received data: %s", (char *)client_event->data);
         if (client_event->user_data)
         {
-            strncpy(current_receive_buffer_position,    // destination buffer
-                    (char *)client_event->data, // source buffer
+            strncpy(current_receive_buffer_position, // destination buffer
+                    (char *)client_event->data,      // source buffer
                     client_event->data_len);
             current_receive_buffer_position += client_event->data_len;
         }

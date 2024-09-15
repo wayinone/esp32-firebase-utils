@@ -25,10 +25,8 @@ static const char *TAG = "FIREBASE_AUTH";
 extern const char get_token_api_pem_start[] asm("_binary_secure_token_googleapis_chain_pem_start");
 extern const char get_token_api_pem_end[] asm("_binary_secure_token_googleapis_chain_pem_end");
 
-const char *CONTENT_TYPE_FORM = "application/x-www-form-urlencoded";
-
 static const int HTTP_PATH_SIZE = 256;
-static const int SEND_BUF_SIZE = 1024;    // this is also called transmit (tx) buffer size
+static const int SEND_BUF_SIZE = 1024; // this is also called transmit (tx) buffer size
 
 char RECEIVE_BODY[RECEIVE_BUF_SIZE];
 
@@ -50,8 +48,6 @@ void get_value_from_json(const char *json, const char *key, char *value)
   cJSON_Delete(root);
 }
 
-
-
 esp_err_t firebase_get_access_token_from_refresh_token(char *refresh_token, char *access_token)
 {
 
@@ -70,12 +66,12 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *refresh_token, char
       .buffer_size = RECEIVE_BUF_SIZE,
       .buffer_size_tx = SEND_BUF_SIZE,
       .user_data = RECEIVE_BODY // The actual receive buffer stored operation is happen in firestore_http_event_handler
-      };
+  };
 
   esp_http_client_handle_t firestore_client_handle = esp_http_client_init(&http_config);
   ESP_LOGI(TAG, "http config initialized");
 
-  esp_http_client_set_header(firestore_client_handle, "Content-Type", CONTENT_TYPE_FORM);
+  esp_http_client_set_header(firestore_client_handle, "Content-Type", "application/x-www-form-urlencoded");
   esp_http_client_set_post_field(firestore_client_handle, http_body, strlen(http_body));
 
   ESP_LOGI(TAG, "http headers set up! Making request...");
@@ -106,11 +102,11 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *refresh_token, char
   ESP_LOGD(TAG, "received body length: %d", strlen(RECEIVE_BODY)); // the auth request should return a json object of size about 1870
   ESP_LOGD(TAG, "received body: %s", RECEIVE_BODY);
 
-  if (strlen(RECEIVE_BODY) > 0) {
+  if (strlen(RECEIVE_BODY) > 0)
+  {
     get_value_from_json(RECEIVE_BODY, "id_token", access_token);
   }
 
   esp_http_client_cleanup(firestore_client_handle);
   return ESP_OK;
 }
-
