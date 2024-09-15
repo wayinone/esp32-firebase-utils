@@ -27,12 +27,30 @@ extern const char get_token_api_pem_end[] asm("_binary_secure_token_googleapis_c
 
 const char *CONTENT_TYPE_FORM = "application/x-www-form-urlencoded";
 
-
 static const int HTTP_PATH_SIZE = 256;
-
-static const int RECEIVE_BUF_SIZE = 4096; // 4096 work but is too small to get token
 static const int SEND_BUF_SIZE = 1024;    // this is also called transmit (tx) buffer size
-static char RECEIVE_BODY[RECEIVE_BUF_SIZE];
+
+char RECEIVE_BODY[RECEIVE_BUF_SIZE];
+
+/**
+ * @brief Get the value from json object
+ *
+ * @param[in] json e.g. '\{"key1": "value1", "key2": "value2"\}'
+ * @param[in] key e.g. "key1"
+ * @param[out] value The output buffer to store the value, e.g. "value1"
+ */
+void get_value_from_json(const char *json, const char *key, char *value)
+{
+  cJSON *root = cJSON_Parse(json);
+  cJSON *field = cJSON_GetObjectItem(root, key);
+  if (field != NULL)
+  {
+    strcpy(value, field->valuestring);
+  }
+  cJSON_Delete(root);
+}
+
+
 
 esp_err_t firebase_get_access_token_from_refresh_token(char *refresh_token, char *access_token)
 {
@@ -51,7 +69,8 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *refresh_token, char
       .transport_type = HTTP_TRANSPORT_OVER_SSL,
       .buffer_size = RECEIVE_BUF_SIZE,
       .buffer_size_tx = SEND_BUF_SIZE,
-      .user_data = RECEIVE_BODY};
+      .user_data = RECEIVE_BODY // The actual receive buffer stored operation is happen in firestore_http_event_handler
+      };
 
   esp_http_client_handle_t firestore_client_handle = esp_http_client_init(&http_config);
   ESP_LOGI(TAG, "http config initialized");
@@ -81,36 +100,17 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *refresh_token, char
       ESP_LOGE(TAG, "Error message: %s", RECEIVE_BODY);
     }
     esp_http_client_cleanup(firestore_client_handle);
+
     return ESP_FAIL;
   }
-  ESP_LOGI(TAG, "receive normal response code: 200");
+  ESP_LOGD(TAG, "received body length: %d", strlen(RECEIVE_BODY)); // the auth request should return a json object of size about 1870
+  ESP_LOGD(TAG, "received body: %s", RECEIVE_BODY);
 
-  // int receive_http_body_size = strlen(RECEIVE_BODY);
-
-  // if (receive_http_body != NULL)
-  // {
-  //   strncpy(receive_http_body, RECEIVE_BODY, receive_http_body_size);
-  // }
+  if (strlen(RECEIVE_BODY) > 0) {
+    get_value_from_json(RECEIVE_BODY, "id_token", access_token);
+  }
 
   esp_http_client_cleanup(firestore_client_handle);
   return ESP_OK;
-}
-
-/**
- * @brief Get the value from json object
- *
- * @param[in] json e.g. '\{"key1": "value1", "key2": "value2"\}'
- * @param[in] key e.g. "key1"
- * @param[out] value The output buffer to store the value, e.g. "value1"
- */
-void get_value_from_json(const char *json, const char *key, char *value)
-{
-  cJSON *root = cJSON_Parse(json);
-  cJSON *field = cJSON_GetObjectItem(root, key);
-  if (field != NULL)
-  {
-    strcpy(value, field->valuestring);
-  }
-  cJSON_Delete(root);
 }
 

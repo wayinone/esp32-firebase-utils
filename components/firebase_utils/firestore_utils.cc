@@ -38,9 +38,9 @@ static const int HTTP_PATH_SIZE = 256;
 static const char BASE_PATH_FORMAT[] = "/v1/projects/" FIREBASE_PROJECT_ID "/" FIRESTORE_DB_ROOT "/%s";
 static int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
 
-static const int RECEIVE_BUF_SIZE = 4096; //4096 work but is too small to get token
+// static const int RECEIVE_BUF_SIZE = 4096; //4096 work but is too small to get token
 static const int SEND_BUF_SIZE = 1024; // this is also called transmit (tx) buffer size
-static char RECEIVE_BODY[RECEIVE_BUF_SIZE];
+// static char RECEIVE_BODY[RECEIVE_BUF_SIZE];
 
 
 
