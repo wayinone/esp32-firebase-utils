@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name="gcp_service_account_utils"
+version = "0.0.1"
+
+authors = [
+  {name = "Wayne Wang", email = "wayinone@gmail.com"},
+]
+maintainers = [
+  {name = "Wayne Wang", email = "wayinone@gmail.com"},
+]
+
+[project.scripts]
+gcp-sa-utils = "gcp_service_account_utils.main:cli"

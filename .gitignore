@@ -2,4 +2,8 @@ build/
 sdkconfig
 sdkconfig.old
 managed_components/
-**/serviceAccountKey.json
+*/service_account_key/*.json
+gcp_auth/environment
+gcp_auth/src/__pycache__/
+gcp_auth/src/*.egg-info/
+gcp_auth/notebook

@@ -6,6 +6,7 @@
 #include "cJSON.h"
 
 
+
 #define FIREBASE_USER_EMAIL "xitydyxo@pelagius.net"
 #define FIREBASE_USER_PASSWORD "abc1234"
 
@@ -16,27 +17,39 @@ void app_main(void)
 
     initWifiSta();
 
-    char *reading_document_format = 
-        "{"
-            "\"fields\": {"
-                "\"val\": {"
-                    "\"integerValue\": \"%s\""
-                "},"
-                "\"dt\": {"
-                    "\"integerValue\": \"%s\""
-                "}"
-            "}"
-        "}";
+    char access_token[1024];
+    firebase_get_access_token_from_refresh_token(CONFIG_FIREBASE_REFRESH_TOKEN, access_token);
 
-    int64_t current_time_int = esp_timer_get_time();
-    char current_time[20];
-    snprintf(current_time, sizeof(current_time), "%lld", current_time_int);
-    char *reading = "1000";
-    char *reading_document = malloc(128 * sizeof(char));
-    int string_len = snprintf(reading_document, 128, reading_document_format, current_time, reading);
-    printf("Reading document: %s\n", reading_document);
+    printf("Access token: %s\n", access_token);
 
-    firestore_createDocument("users/nnTE6Tb3k8Y7EaC6atzfaPoiHs03/devices/logs/log1", "record1", reading_document);
+
+    // char *reading_document_format = 
+    //     "{"
+    //         "\"fields\": {"
+    //             "\"val\": {"
+    //                 "\"integerValue\": \"%s\""
+    //             "},"
+    //             "\"dt\": {"
+    //                 "\"integerValue\": \"%s\""
+    //             "}"
+    //         "}"
+    //     "}";
+
+    // int64_t current_time_int = esp_timer_get_time();
+    // char current_time[20];
+    // snprintf(current_time, sizeof(current_time), "%lld", current_time_int);
+    // char *reading = "1000";
+    // char *reading_document = malloc(128 * sizeof(char));
+    // int string_len = snprintf(reading_document, 128, reading_document_format, current_time, reading);
+    // printf("Reading document: %s\n", reading_document);
+
+    // char *access_token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjAyMTAwNzE2ZmRkOTA0ZTViNGQ0OTExNmZmNWRiZGZjOTg5OTk0MDEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbWV0ZXItbW9uaXRvci1hMmQyOSIsImF1ZCI6Im1ldGVyLW1vbml0b3ItYTJkMjkiLCJhdXRoX3RpbWUiOjE3MjYzMjU5NjIsInVzZXJfaWQiOiJxbWh2eiIsInN1YiI6InFtaHZ6IiwiaWF0IjoxNzI2MzM0MjQyLCJleHAiOjE3MjYzMzc4NDIsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnt9LCJzaWduX2luX3Byb3ZpZGVyIjoiY3VzdG9tIn19.CKp7jZpfDbT_PnNYJ0tPpsqlUmgBrSv26by5s0wgh-JzyDRark6NESS9pq5d2NQb7O7J_iXTdo3Zk8SovZ-tVjiXYMQmJMMahfFSP3HlWwoDSV8bPpApIYYpk6dzirTus_aAlhIxeMGeOmdnswbWXHnzcLhdiLa9KlmSZQ2GlQwb9Hyj3dsQUNaGncb67v1_vRSp7jEU-dkX66kYTlH9UcTy4ynEkbAETiRE2NmSj8iHrmvgA41eJRIom05ADWIcpwTdZl7m1foyxS5ctaxLHyhEOLbWFu35_auXY-zWU7-s8N6KBiyX6kTCFvYjRaKe5c-1-v-a8Np4mAFsLXnyHA";
+
+    // firestore_createDocument("dev/develop/devices", "test_record_8", reading_document, access_token);
+
+
+
+
 
     // char *firestore_path = "devices/abcde";
 
