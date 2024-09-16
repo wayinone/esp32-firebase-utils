@@ -12,6 +12,8 @@
 
 static const char *TAG = "FIRESTORE";
 
+static const int MAX_PATCH_FIELDS = 10;
+
 #define FIRESTORE_HOSTNAME "firestore.googleapis.com"
 
 /**
@@ -75,6 +77,7 @@ esp_err_t make_abstract_firestore_api_request(
     esp_http_client_handle_t firestore_client_handle;
     esp_http_client_config_t http_config = {
         .host = FIRESTORE_HOSTNAME,
+        .path = full_path,
         .cert_pem = firestore_api_pem_start, // the certificate of the server (can be downloaded from the browser)
         .event_handler = firestore_http_event_handler,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
@@ -90,7 +93,6 @@ esp_err_t make_abstract_firestore_api_request(
             return ESP_FAIL;
         }
     }
-    http_config.path = full_path;
     ESP_LOGI(TAG, "HTTP path: %s", http_config.path);
     firestore_client_handle = esp_http_client_init(&http_config);
     ESP_LOGI(TAG, "http config initialized");
@@ -172,7 +174,7 @@ esp_err_t firestore_get(char *firebase_path, char *token, char *content)
     return result;
 }
 
-esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *document_name, char *http_body, char *token)
+esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *document_name, char *data, char *token)
 {
     if (!is_collection_path(firebase_path_to_collection))
     {
@@ -193,12 +195,59 @@ esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *docu
 
     get_path(firebase_path, full_path);
 
-    result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_POST, http_body, token, NULL);
+    result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_POST, data, token, NULL);
     free(full_path);
     return result;
 }
 
-esp_err_t firestore_patch(char *firebase_path, char *http_body, char *token)
+
+/**
+ * @brief Extracts the keys from a json string that contains "fields" key
+ * 
+ * @param[in] json the json string e.g. 
+ * {"fields": { "Oct21": {"integerValue": "100"},
+ *              "Oct22": {"integerValue": "100"}}}
+ * 
+ * @param[out] keys the array of keys extracted from the json string. 
+ * e.g. keys[0] = "Oct21", keys[1] = "Oct22"
+ * @param[out] num_keys the number of keys extracted from the json string
+ */
+void extract_keys_from_fields(char *json, char **keys, int *num_keys) {
+    cJSON *root = cJSON_Parse(json);
+    cJSON *fields = cJSON_GetObjectItem(root, "fields");
+    cJSON *field = NULL;
+    int i = 0;
+    cJSON_ArrayForEach(field, fields) {
+        keys[i] = field->string;
+        i++;
+    }
+    *num_keys = i;
+}
+
+/**
+ * @brief get the update mask string for patch request url query
+ * 
+ * @param[in] fields the array of fields extracted from the json string, e.g. fields[0] = "Oct21", fields[1] = "Oct22"
+ * @param[in] num_fields the number of fields extracted from the json string
+ * @param[out] update_mask_string the update mask string to be used in the patch request url
+ * e.g. "updateMask.fieldPaths=Oct21&updateMask.fieldPaths=Oct22"
+ */
+void get_update_mask_string(char **fields, int num_fields, char *update_mask_string){
+    int update_mask_string_size = 0;
+    for (int i = 0; i < num_fields; i++) {
+        update_mask_string_size += strlen(fields[i]) + 25;
+    }
+    char update_mask[update_mask_string_size];
+    int offset = 0;
+    for (int i = 0; i < num_fields; i++) {
+        offset += snprintf(update_mask + offset, update_mask_string_size - offset, "updateMask.fieldPaths=%s&", fields[i]);
+    }
+    update_mask[offset - 1] = '\0';
+    strcpy(update_mask_string, update_mask);
+}
+
+
+esp_err_t firestore_patch(char *firebase_path, char *data, char *token)
 {
     if (is_collection_path(firebase_path))
     {
@@ -210,7 +259,30 @@ esp_err_t firestore_patch(char *firebase_path, char *http_body, char *token)
     char *full_path = (char *)malloc(full_path_size);
     get_path(firebase_path, full_path);
 
-    result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_PATCH, http_body, token, NULL);
+    // get the update mask string
+    char *keys[MAX_PATCH_FIELDS];
+    int num_keys = 0;
+    extract_keys_from_fields(data, keys, &num_keys);
+
+    //calculate the size of the update mask string (so that this request will only update or insert the fields in the json body)
+    int update_mask_string_size = 0;
+    int update_mask_query_param_size = strlen("updateMask.fieldPaths=") + 2;
+    for (int i = 0; i < num_keys; i++) {
+        update_mask_string_size += strlen(keys[i]) + update_mask_query_param_size;
+    }
+
+    char update_mask_string[update_mask_string_size];
+    get_update_mask_string(keys, num_keys, update_mask_string);
+
+    ESP_LOGD(TAG, "Update mask string: %s", update_mask_string);
+
+    // append "?" + update mask string to the full path
+    int full_path_size_with_update_mask = full_path_size + strlen(update_mask_string) + 2;
+    char *full_path_with_update_mask = (char *)malloc(full_path_size_with_update_mask);
+    snprintf(full_path_with_update_mask, full_path_size_with_update_mask, "%s?%s", full_path, update_mask_string);
+
+    result = make_abstract_firestore_api_request(full_path_with_update_mask, HTTP_METHOD_PATCH, data, token, NULL);
     free(full_path);
+    free(full_path_with_update_mask);
     return result;
 }

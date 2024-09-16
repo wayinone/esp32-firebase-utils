@@ -31,25 +31,30 @@ extern "C"
      * @param[in] firebase_path_to_collection The path to the collection in Firestore.
      * e.g. "col1", or "col1/doc1/subcol1"
      * @param[in] document_name The name of the document to create.
-     * @param[in] http_body The body of the HTTP request. i.e. the content of the document to be sent. *
+     * @param[in] data The body of the HTTP request. i.e. the content of the document to be sent. *
      * e.g. "{\"fields\": {\"name\": {\"stringValue\": \"John\"}}}" Note that this needs to conform to the format required by the Firestore API.
      * See https://firebase.google.com/docs/firestore/reference/rest/v1/projects.databases.documents#Document
      * @param[in] token The token to authenticate the request.
      */
-    esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *document_name, char *http_body, char *token);
+    esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *document_name, char *data, char *token);
 
     /**
      * @brief Patch (update or inserts) a document in Firestore
      * https://firebase.google.com/docs/firestore/reference/rest/v1beta1/projects.databases.documents/patch
+     * We use the updateMask query parameter to specify the fields that are contained in the `data` parameter.
+     * If the document does not exist, it will be created.
      * 
      * @param[in] firebase_path The path to the document in Firestore.
      * e.g. "col1/doc1" or "col1/doc1/subcol2/doc2"
-     * @param[in] http_body The body of the HTTP request. i.e. the content of the document to be sent. 
-     * e.g. "{\"fields\": {\"name\": {\"stringValue\": \"John\"}}}" Note that this needs to conform to the format required by the Firestore API.
+     * @param[in] data The body of the HTTP request. i.e. the content of the document to be sent. 
+     * e.g."{\"fields\": { \"Oct23\": {\"integerValue\": \"500\"}, \"Oct22\": {\"integerValue\": \"500\"}}}" 
+     * Note that this needs to conform to the format required by the Firestore API.
      * See https://firebase.google.com/docs/firestore/reference/rest/v1/projects.databases.documents#Document
+     * Note that in this example, the fields "Oct23" and "Oct22" will be updated (or inserted if not exists) in the document.
      * @param[in] token The token to authenticate the request.
      */
-    esp_err_t firestore_patch(char *firebase_path, char *http_body, char *token);
+    esp_err_t firestore_patch(char *firebase_path, char *data, char *token);
+
 
 #ifdef __cplusplus
 }
