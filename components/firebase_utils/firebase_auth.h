@@ -12,8 +12,8 @@ extern "C"
 #define FIREBASE_API_KEY CONFIG_FIREBASE_API_KEY
 
 /**
- * @brief Get the path for Firestore REST API
- * https://cloud.google.com/identity-platform/docs/use-rest-api
+ * @brief Exchange a refresh token for an ID token
+ * https://cloud.google.com/identity-platform/docs/use-rest-api#section-refresh-token
  *
  * @param[in] refresh_token The refresh token to be used to get the access token.
  * @param[out] access_token The access token to be used in the Firebase API requests. Note that GCP a token usually

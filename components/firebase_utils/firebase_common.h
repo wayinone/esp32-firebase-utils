@@ -14,6 +14,7 @@ extern "C"
 static const int RECEIVE_BUF_SIZE = 4096; 
 
 // make a global variable to store the received data
+// todo: somehow I can't initialize this here, so I initialize it in firebase_auth.cc
 extern char RECEIVE_BODY[RECEIVE_BUF_SIZE]; // note that this is initialized in firebase_auth.cc
 
 esp_err_t firestore_http_event_handler(esp_http_client_event_t *pstEvent);

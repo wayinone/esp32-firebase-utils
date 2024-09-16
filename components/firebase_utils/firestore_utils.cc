@@ -30,7 +30,6 @@ static int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
 
 static const int SEND_BUF_SIZE = 2048; // this is also called transmit (tx) buffer size
 
-
 /**
  * @brief Get the path for Firestore REST API
  *
@@ -168,7 +167,7 @@ esp_err_t firestore_get(char *firebase_path, char *token, char *content)
     char *full_path = (char *)malloc(full_path_size);
     get_path(firebase_path, full_path);
 
-    result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_GET, NULL,  token, content);
+    result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_GET, NULL, token, content);
     free(full_path);
     return result;
 }
@@ -194,7 +193,7 @@ esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *docu
 
     get_path(firebase_path, full_path);
 
-    result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_POST, http_body,  token, NULL);
+    result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_POST, http_body, token, NULL);
     free(full_path);
     return result;
 }
@@ -211,7 +210,7 @@ esp_err_t firestore_patch(char *firebase_path, char *http_body, char *token)
     char *full_path = (char *)malloc(full_path_size);
     get_path(firebase_path, full_path);
 
-    result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_PATCH, http_body,  token, NULL);
+    result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_PATCH, http_body, token, NULL);
     free(full_path);
     return result;
 }

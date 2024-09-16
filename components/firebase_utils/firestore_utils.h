@@ -38,16 +38,18 @@ extern "C"
      */
     esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *document_name, char *http_body, char *token);
 
+    /**
+     * @brief Patch (update or inserts) a document in Firestore
+     * https://firebase.google.com/docs/firestore/reference/rest/v1beta1/projects.databases.documents/patch
+     * 
+     * @param[in] firebase_path The path to the document in Firestore.
+     * e.g. "col1/doc1" or "col1/doc1/subcol2/doc2"
+     * @param[in] http_body The body of the HTTP request. i.e. the content of the document to be sent. 
+     * e.g. "{\"fields\": {\"name\": {\"stringValue\": \"John\"}}}" Note that this needs to conform to the format required by the Firestore API.
+     * See https://firebase.google.com/docs/firestore/reference/rest/v1/projects.databases.documents#Document
+     * @param[in] token The token to authenticate the request.
+     */
     esp_err_t firestore_patch(char *firebase_path, char *http_body, char *token);
-
-    // /**
-    //  * @brief Get the path for Firestore REST API
-    //  * https://cloud.google.com/identity-platform/docs/use-rest-api
-    //  *
-    //  * @param[in] refresh_token The refresh token to be used to get the access token.
-    //  * @param[out] access_token The access token to be used in the Firebase API requests.
-    //  */
-    // esp_err_t firebase_get_access_token_from_refresh_token(const char *refresh_token, char *access_token);
 
 #ifdef __cplusplus
 }
