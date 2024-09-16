@@ -4,15 +4,19 @@
  * https://firebase.google.com/docs/firestore/reference/rest/v1beta1/projects.databases.documents/
  */
 
-#include "firebase_common.h" // import firestore_http_event_handler
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG // set the log level for this file
+
+// #include "firebase_common.h" // import firestore_http_event_handler
 #include "firebase_auth.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_log.h"
+#include "esp_http_client.h"
 #include "cJSON.h"
 
 static const char *TAG = "FIREBASE_AUTH";
+static const char *TAG_EVENT_HANDLER = "FIREBASE_AUTH_HTTP_EVENT";
 
 #define FIREBASE_TOKEN_REQUEST_HOSTNAME "securetoken.googleapis.com"
 
@@ -26,8 +30,12 @@ extern const char get_token_api_pem_start[] asm("_binary_secure_token_googleapis
 extern const char get_token_api_pem_end[] asm("_binary_secure_token_googleapis_chain_pem_end");
 
 static const int SEND_BUF_SIZE = 1024; // this is also called transmit (tx) buffer size
+static const int RECEIVE_BUF_SIZE = 4096;
 
-char RECEIVE_BODY[RECEIVE_BUF_SIZE];
+static char RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
+static int receive_body_len = 0;
+
+esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event);
 
 /**
  * @brief Get the value from json object
@@ -53,8 +61,6 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
   char full_path[] = "/v1/token?key=" FIREBASE_API_KEY;
   char http_body[] = "grant_type=refresh_token&refresh_token=" FIREBASE_REFRESH_TOKEN;
 
-  // char receive_http_body[RECEIVE_BUF_SIZE];
-
   esp_http_client_config_t http_config = {
       .host = FIREBASE_TOKEN_REQUEST_HOSTNAME,
       .path = full_path,
@@ -78,6 +84,7 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
   {
     ESP_LOGE(TAG, "Failed to perform HTTP request");
     esp_http_client_cleanup(firestore_client_handle);
+    receive_body_len = 0;
     return ESP_FAIL;
   }
 
@@ -95,11 +102,10 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
       ESP_LOGE(TAG, "Error message: %s", RECEIVE_BODY);
     }
     esp_http_client_cleanup(firestore_client_handle);
-
+    receive_body_len = 0;
     return ESP_FAIL;
   }
-  ESP_LOGD(TAG, "received body length: %d", strlen(RECEIVE_BODY)); // the auth request should return a json object of size about 1870
-  ESP_LOGD(TAG, "received body: %s", RECEIVE_BODY);
+  ESP_LOGD(TAG, "total received body length: %d", strlen(RECEIVE_BODY)); // the auth request should return a json object of size about 1870
 
   if (strlen(RECEIVE_BODY) > 0)
   {
@@ -107,5 +113,57 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
   }
 
   esp_http_client_cleanup(firestore_client_handle);
+  receive_body_len = 0;
+  return ESP_OK;
+}
+
+esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
+{
+
+  switch (client_event->event_id)
+  {
+  case HTTP_EVENT_ERROR:
+    ESP_LOGI(TAG_EVENT_HANDLER, "HTTP error");
+    receive_body_len = 0; // reset the receive body length
+    break;
+  case HTTP_EVENT_ON_CONNECTED:
+    ESP_LOGI(TAG_EVENT_HANDLER, "HTTP connected to server");
+    receive_body_len = 0; // reset the receive body length
+    break;
+  case HTTP_EVENT_HEADERS_SENT:
+    ESP_LOGI(TAG_EVENT_HANDLER, "All HTTP headers are sent to server");
+    break;
+  case HTTP_EVENT_ON_HEADER:
+    ESP_LOGI(TAG_EVENT_HANDLER, "HTTP header received");
+    break;
+  case HTTP_EVENT_ON_DATA: // note that this might be called multiple times because the data might be chunked
+    ESP_LOGI(TAG_EVENT_HANDLER, "HTTP data received, with length: %d", client_event->data_len);
+
+    ESP_LOGD(TAG_EVENT_HANDLER, "received data: %s", (char *)client_event->data);
+    if (client_event->user_data)
+    {
+      strncpy((char *)client_event->user_data + receive_body_len, // destination buffer
+              (char *)client_event->data,                         // source buffer
+              client_event->data_len);
+      receive_body_len += client_event->data_len;
+      ESP_LOGD(TAG_EVENT_HANDLER, "received data length: %d", receive_body_len);
+      ESP_LOGD(TAG_EVENT_HANDLER, "received data: %s", RECEIVE_BODY);
+    }
+
+    break;
+  case HTTP_EVENT_ON_FINISH:
+    ESP_LOGI(TAG_EVENT_HANDLER, "HTTP session is finished");
+    *((char *)client_event->user_data + receive_body_len) = '\0'; // write the null terminator to the buffer
+    receive_body_len = 0;                                         // reset the receive body length
+    break;
+  case HTTP_EVENT_DISCONNECTED:
+    ESP_LOGI(TAG_EVENT_HANDLER, "HTTP connection is closed");
+    receive_body_len = 0; // reset the receive body length
+    break;
+  case HTTP_EVENT_REDIRECT:
+    ESP_LOGI(TAG_EVENT_HANDLER, "HTTP redirect");
+    receive_body_len = 0; // reset the receive body length
+    break;
+  }
   return ESP_OK;
 }
