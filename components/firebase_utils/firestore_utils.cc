@@ -266,7 +266,7 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token)
 
     //calculate the size of the update mask string (so that this request will only update or insert the fields in the json body)
     int update_mask_string_size = 0;
-    int update_mask_query_param_size = strlen("updateMask.fieldPaths=") + 2;
+    int update_mask_query_param_size = 26; //strlen("updateMask.fieldPaths=%s&") + 2;
     for (int i = 0; i < num_keys; i++) {
         update_mask_string_size += strlen(keys[i]) + update_mask_query_param_size;
     }

@@ -25,7 +25,6 @@ static const char *TAG = "FIREBASE_AUTH";
 extern const char get_token_api_pem_start[] asm("_binary_secure_token_googleapis_chain_pem_start");
 extern const char get_token_api_pem_end[] asm("_binary_secure_token_googleapis_chain_pem_end");
 
-static const int HTTP_PATH_SIZE = 256;
 static const int SEND_BUF_SIZE = 1024; // this is also called transmit (tx) buffer size
 
 char RECEIVE_BODY[RECEIVE_BUF_SIZE];
@@ -48,7 +47,7 @@ void get_value_from_json(const char *json, const char *key, char *value)
   cJSON_Delete(root);
 }
 
-esp_err_t firebase_get_access_token_from_refresh_token(char *refresh_token, char *access_token)
+esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
 {
 
   char full_path[] = "/v1/token?key=" FIREBASE_API_KEY;
