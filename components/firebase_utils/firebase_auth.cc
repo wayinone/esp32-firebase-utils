@@ -6,7 +6,7 @@
 
 #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG // set the log level for this file
 
-// #include "firebase_common.h" // import firestore_http_event_handler
+// #include "firebase_common.h" // import firebase_http_event_handler
 #include "firebase_auth.h"
 #include <string.h>
 #include <stdint.h>
@@ -35,7 +35,7 @@ static const int RECEIVE_BUF_SIZE = 4096;
 static char RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
 static int receive_body_len = 0;
 
-esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event);
+esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event);
 
 /**
  * @brief Get the value from json object
@@ -66,34 +66,34 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
       .path = full_path,
       .cert_pem = get_token_api_pem_start,
       .method = HTTP_METHOD_POST,
-      .event_handler = firestore_http_event_handler,
+      .event_handler = firebase_http_event_handler,
       .transport_type = HTTP_TRANSPORT_OVER_SSL,
       .buffer_size = RECEIVE_BUF_SIZE,
       .buffer_size_tx = SEND_BUF_SIZE,
-      .user_data = RECEIVE_BODY // The actual receive buffer stored operation is happen in firestore_http_event_handler
+      .user_data = RECEIVE_BODY // The actual receive buffer stored operation is happen in firebase_http_event_handler
   };
 
-  esp_http_client_handle_t firestore_client_handle = esp_http_client_init(&http_config);
+  esp_http_client_handle_t firebase_client_handle = esp_http_client_init(&http_config);
   ESP_LOGI(TAG, "http config initialized");
 
-  esp_http_client_set_header(firestore_client_handle, "Content-Type", "application/x-www-form-urlencoded");
-  esp_http_client_set_post_field(firestore_client_handle, http_body, strlen(http_body));
+  esp_http_client_set_header(firebase_client_handle, "Content-Type", "application/x-www-form-urlencoded");
+  esp_http_client_set_post_field(firebase_client_handle, http_body, strlen(http_body));
 
   ESP_LOGI(TAG, "http headers set up! Making request...");
-  if (esp_http_client_perform(firestore_client_handle) != ESP_OK)
+  if (esp_http_client_perform(firebase_client_handle) != ESP_OK)
   {
     ESP_LOGE(TAG, "Failed to perform HTTP request");
-    esp_http_client_cleanup(firestore_client_handle);
+    esp_http_client_cleanup(firebase_client_handle);
     receive_body_len = 0;
     return ESP_FAIL;
   }
 
   ESP_LOGI(TAG, "HTTP request performed");
-  int response_code = esp_http_client_get_status_code(firestore_client_handle);
+  int response_code = esp_http_client_get_status_code(firebase_client_handle);
   ESP_LOGD(TAG,
            "HTTP Response code: %d, content_length: %d",
            response_code,
-           (int)esp_http_client_get_content_length(firestore_client_handle));
+           (int)esp_http_client_get_content_length(firebase_client_handle));
 
   if (response_code != 200)
   {
@@ -101,7 +101,7 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
     {
       ESP_LOGE(TAG, "Error message: %s", RECEIVE_BODY);
     }
-    esp_http_client_cleanup(firestore_client_handle);
+    esp_http_client_cleanup(firebase_client_handle);
     receive_body_len = 0;
     return ESP_FAIL;
   }
@@ -112,12 +112,12 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
     get_value_from_json(RECEIVE_BODY, "id_token", access_token);
   }
 
-  esp_http_client_cleanup(firestore_client_handle);
+  esp_http_client_cleanup(firebase_client_handle);
   receive_body_len = 0;
   return ESP_OK;
 }
 
-esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
+esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event)
 {
 
   switch (client_event->event_id)

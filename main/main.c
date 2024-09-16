@@ -23,25 +23,25 @@ void app_main(void)
     printf("Access token: %s\n", access_token); // This token is valid for 1 hour
 
 
-    // /**
-    //  * Example of creating a document
-    //  * 
-    //  * The document at the path "dev/develop/devices" will be created with the name "test_record_XX" and the content of the document will be {"Sep14": 1000}
-    //  * If the document already exists, it will be overwritten.
-    //  * Note that if your firestore doesn't require token, you can pass NULL as the last argument. (This is not recommended, but it is good to test if the firestore is working)
-    //  */
-    // char example_doc[] = "{\"fields\": { \"Sep14\": {\"integerValue\": \"1000\"}}}";
-    // firestore_createDocument("dev/develop/devices", "test_record_27", example_doc, NULL);
-
     /**
-     * Example of patching a document
+     * Example of creating a document
      * 
-     * The document at the path "dev/develop/devices/test_dev/log/2410" will be updated with the key:value "OctXX: 500" and "OctXX: 500"
-     * If the fields do not exist, they will be created.
-     * * Note that if your firestore doesn't require token, you can pass NULL as the last argument. (This is not recommended, but it is good to test if the firestore is working)
-    */
-   char example_path_record[] = "{\"fields\": { \"Oct01\": {\"integerValue\": \"500\"}, \"Oct02\": {\"integerValue\": \"500\"}}}";
-   firestore_patch("dev/develop/devices/test_dev/log/2410", example_path_record, access_token);
+     * The document at the path "dev/develop/devices" will be created with the name "test_record_XX" and the content of the document will be {"Sep14": 1000}
+     * If the document already exists, it will be overwritten.
+     * Note that if your firestore doesn't require token, you can pass NULL as the last argument. (This is not recommended, but it is good to test if the firestore is working)
+     */
+    char example_doc[] = "{\"fields\": { \"Sep14\": {\"integerValue\": \"1000\"}}}";
+    firestore_createDocument("dev/develop/devices", "test_record_27", example_doc, access_token);
+
+//     /**
+//      * Example of patching a document
+//      * 
+//      * The document at the path "dev/develop/devices/test_dev/log/2410" will be updated with the key:value "OctXX: 500" and "OctXX: 500"
+//      * If the fields do not exist, they will be created.
+//      * * Note that if your firestore doesn't require token, you can pass NULL as the last argument. (This is not recommended, but it is good to test if the firestore is working)
+//     */
+//    char example_path_record[] = "{\"fields\": { \"Oct01\": {\"integerValue\": \"500\"}, \"Oct02\": {\"integerValue\": \"500\"}}}";
+//    firestore_patch("dev/develop/devices/test_dev/log/2410", example_path_record, access_token);
 
 
 

@@ -26,18 +26,16 @@ static const int MAX_PATCH_FIELDS = 10;
 extern const char firestore_api_pem_start[] asm("_binary_googleapis_com_chain_pem_start");
 extern const char firestore_api_pem_end[] asm("_binary_googleapis_com_chain_pem_end");
 
-static const int HTTP_PATH_SIZE = 256;
-
 static const char BASE_PATH_FORMAT[] = "/v1/projects/" FIREBASE_PROJECT_ID "/" FIRESTORE_DB_ROOT "/%s";
-static int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
+static const int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
 
 static const int SEND_BUF_SIZE = 3072; // this is also called transmit (tx) buffer size
-static const int RECEIVE_BUF_SIZE = 1024;
+static const int RECEIVE_BUF_SIZE = 2048;
 
-static char RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
+static char FIRESTORE_HTTP_RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
 static int receive_body_len = 0;
 
-esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event);
+esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event);
 
 
 
@@ -65,11 +63,11 @@ esp_err_t make_abstract_firestore_api_request(
         .host = FIRESTORE_HOSTNAME,
         .path = full_path,
         .cert_pem = firestore_api_pem_start, // the certificate of the server (can be downloaded from the browser)
-        .event_handler = firebase_http_event_handler,
+        .event_handler = firestore_http_event_handler,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .buffer_size = RECEIVE_BUF_SIZE,
-        .buffer_size_tx = SEND_BUF_SIZE};
-        // .user_data = NULL}; // note that RECEIVE_BODY should be initialized when firebase_auth.cc is called.
+        .buffer_size_tx = SEND_BUF_SIZE,
+        .user_data = FIRESTORE_HTTP_RECEIVE_BODY}; // note that FIRESTORE_HTTP_RECEIVE_BODY should be initialized when firebase_auth.cc is called.
 
     if (http_method == HTTP_METHOD_POST || http_method == HTTP_METHOD_PATCH)
     {
@@ -114,22 +112,22 @@ esp_err_t make_abstract_firestore_api_request(
              (int)esp_http_client_get_content_length(firestore_client_handle));
 
     // get the response body
-    // int receive_http_body_size = strlen(RECEIVE_BODY);
+    int receive_http_body_size = strlen(FIRESTORE_HTTP_RECEIVE_BODY);
 
-    // ESP_LOGD(TAG, "total received body length: %d", receive_http_body_size);
-    // ESP_LOGD(TAG, "received body: %s", RECEIVE_BODY);
+    ESP_LOGD(TAG, "total received body length: %d", receive_http_body_size);
+    ESP_LOGD(TAG, "received body: %s", FIRESTORE_HTTP_RECEIVE_BODY);
 
-    // if (receive_http_body != NULL)
-    // {
-    //     strncpy(receive_http_body, RECEIVE_BODY, receive_http_body_size);
-    // }
+    if (receive_http_body != NULL)
+    {
+        strncpy(receive_http_body, FIRESTORE_HTTP_RECEIVE_BODY, receive_http_body_size);
+    }
     if (response_code != 200)
     {
         ESP_LOGE(TAG, "Firestore REST API call failed with HTTP code: %d", response_code);
-        // if (receive_http_body_size > 0)
-        // {
-        //     ESP_LOGE(TAG, "Error message: %s", RECEIVE_BODY);
-        // }
+        if (receive_http_body_size > 0)
+        {
+            ESP_LOGE(TAG, "Error message: %s", FIRESTORE_HTTP_RECEIVE_BODY);
+        }
         esp_http_client_cleanup(firestore_client_handle);
         receive_body_len = 0; // reset the receive body length
 
@@ -171,17 +169,18 @@ esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *docu
     // the firebase_path is 'firebase_path_to_collection' + '?documentId=' + 'document_name'
     int firestore_path_size = strlen(firebase_path_to_collection) + strlen(document_name) + 20;
     char firebase_path[firestore_path_size];
-    snprintf(firebase_path, firestore_path_size, "%s?documentId=%s", firebase_path_to_collection, document_name);
+    int firestore_path_size_real = snprintf(
+        firebase_path, firestore_path_size, "%s?documentId=%s", firebase_path_to_collection, document_name);
 
-    ESP_LOGD(TAG, "firebase_path: %s", firebase_path);
+    ESP_LOGI(TAG, "firebase_path: %s\n with size %d\n", firebase_path, firestore_path_size_real);
 
-    int full_path_size = BASE_PATH_FORMAT_SIZE + firestore_path_size + 1;
-    char *full_path = (char *)malloc(full_path_size);
-
+    int full_path_size = BASE_PATH_FORMAT_SIZE + firestore_path_size_real + 1;
+    char full_path[full_path_size];
     snprintf(full_path, full_path_size, BASE_PATH_FORMAT, firebase_path);
 
+
+
     result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_POST, data, token, NULL);
-    free(full_path);
     ESP_LOGI(TAG, "Firestore patch request done");
     return result;
 }
@@ -279,7 +278,7 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token)
     return result;
 }
 
-esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event)
+esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
 {
 
     switch (client_event->event_id)
@@ -301,21 +300,21 @@ esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event)
     case HTTP_EVENT_ON_DATA: // note that this might be called multiple times because the data might be chunked
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP data received, with length: %d", client_event->data_len);
 
-        ESP_LOGD(TAG_EVENT_HANDLER, "received data: %s", (char *)client_event->data);
-        // if (client_event->user_data)
-        // {
-        //     strncpy((char *)client_event->user_data + receive_body_len, // destination buffer
-        //             (char *)client_event->data,                         // source buffer
-        //             client_event->data_len);
-        //     receive_body_len += client_event->data_len;
-        //     ESP_LOGD(TAG_EVENT_HANDLER, "received data length: %d", receive_body_len);
-        //     ESP_LOGD(TAG_EVENT_HANDLER, "received data: %s", RECEIVE_BODY);
-        // }
+        ESP_LOGI(TAG_EVENT_HANDLER, "received data: %s", (char *)client_event->data);
+        if (client_event->user_data)
+        {
+            strncpy((char *)client_event->user_data + receive_body_len, // destination buffer
+                    (char *)client_event->data,                         // source buffer
+                    client_event->data_len);
+            receive_body_len += client_event->data_len;
+            ESP_LOGD(TAG_EVENT_HANDLER, "received data length: %d", receive_body_len);
+            ESP_LOGD(TAG_EVENT_HANDLER, "received data: %s", FIRESTORE_HTTP_RECEIVE_BODY);
+        }
 
         break;
     case HTTP_EVENT_ON_FINISH:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP session is finished");
-        // *((char *)client_event->user_data + receive_body_len) = '\0'; // write the null terminator to the buffer
+        *((char *)client_event->user_data + receive_body_len) = '\0'; // write the null terminator to the buffer
         receive_body_len = 0;                                         // reset the receive body length
         break;
     case HTTP_EVENT_DISCONNECTED:
