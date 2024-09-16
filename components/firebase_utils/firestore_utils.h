@@ -55,6 +55,9 @@ extern "C"
      */
     esp_err_t firestore_patch(char *firebase_path, char *data, char *token);
 
+    void firestore_utils_init();
+
+    void firestore_utils_cleanup();
 
 #ifdef __cplusplus
 }

@@ -26,16 +26,30 @@ static const char *TAG_EVENT_HANDLER = "FIREBASE_AUTH_HTTP_EVENT";
  * One can download the certificate from:
  *  Firefox -> put website `FIRESTORE_HOSTNAME` -> click on the lock icon -> More Information -> View Certificate -> Details -> Export
  */
-extern const char get_token_api_pem_start[] asm("_binary_secure_token_googleapis_chain_pem_start");
-extern const char get_token_api_pem_end[] asm("_binary_secure_token_googleapis_chain_pem_end");
+// extern const char get_token_api_pem_start[] asm("_binary_secure_token_googleapis_chain_pem_start");
+// extern const char get_token_api_pem_end[] asm("_binary_secure_token_googleapis_chain_pem_end");
 
 static const int SEND_BUF_SIZE = 1024; // this is also called transmit (tx) buffer size
-static const int RECEIVE_BUF_SIZE = 4096;
+static const int RECEIVE_BUF_SIZE = 3072;
+// static char RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
 
-static char RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
+static char *RECEIVE_BODY = NULL;
+
+void firebase_auth_init()
+{
+  // initialize the receive body buffer over SPIRAM
+  RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
+}
+
+void firebase_auth_cleanup()
+{
+  heap_caps_free(RECEIVE_BODY);
+  RECEIVE_BODY = NULL;
+}
+
 static int receive_body_len = 0;
 
-esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event);
+static esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event);
 
 /**
  * @brief Get the value from json object
@@ -58,13 +72,14 @@ void get_value_from_json(const char *json, const char *key, char *value)
 esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
 {
 
+
   char full_path[] = "/v1/token?key=" FIREBASE_API_KEY;
   char http_body[] = "grant_type=refresh_token&refresh_token=" FIREBASE_REFRESH_TOKEN;
 
   esp_http_client_config_t http_config = {
       .host = FIREBASE_TOKEN_REQUEST_HOSTNAME,
       .path = full_path,
-      .cert_pem = get_token_api_pem_start,
+      // .cert_pem = get_token_api_pem_start,
       .method = HTTP_METHOD_POST,
       .event_handler = firebase_http_event_handler,
       .transport_type = HTTP_TRANSPORT_OVER_SSL,
@@ -114,10 +129,11 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
 
   esp_http_client_cleanup(firebase_client_handle);
   receive_body_len = 0;
+  ESP_LOGI(TAG, "HTTP request cleanup");
   return ESP_OK;
 }
 
-esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event)
+static esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event)
 {
 
   switch (client_event->event_id)
@@ -147,7 +163,7 @@ esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event)
               client_event->data_len);
       receive_body_len += client_event->data_len;
       ESP_LOGD(TAG_EVENT_HANDLER, "received data length: %d", receive_body_len);
-      ESP_LOGD(TAG_EVENT_HANDLER, "received data: %s", RECEIVE_BODY);
+      // ESP_LOGD(TAG_EVENT_HANDLER, "received data: %s", RECEIVE_BODY);
     }
 
     break;

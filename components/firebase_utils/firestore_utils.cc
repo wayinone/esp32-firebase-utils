@@ -23,8 +23,8 @@ static const int MAX_PATCH_FIELDS = 10;
  * One can download the certificate from:
  *  Firefox -> put website `FIRESTORE_HOSTNAME` -> click on the lock icon -> More Information -> View Certificate -> Details -> Export
  */
-extern const char firestore_api_pem_start[] asm("_binary_googleapis_com_chain_pem_start");
-extern const char firestore_api_pem_end[] asm("_binary_googleapis_com_chain_pem_end");
+// extern const char firestore_api_pem_start[] asm("_binary_googleapis_com_chain_pem_start");
+// extern const char firestore_api_pem_end[] asm("_binary_googleapis_com_chain_pem_end");
 
 static const char BASE_PATH_FORMAT[] = "/v1/projects/" FIREBASE_PROJECT_ID "/" FIRESTORE_DB_ROOT "/%s";
 static const int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
@@ -32,8 +32,24 @@ static const int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
 static const int SEND_BUF_SIZE = 3072; // this is also called transmit (tx) buffer size
 static const int RECEIVE_BUF_SIZE = 2048;
 
-static char FIRESTORE_HTTP_RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
-static int receive_body_len = 0;
+// static char FIRESTORE_HTTP_RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
+// initialize the receive body buffer over SPIRAM
+// static char *FIRESTORE_HTTP_RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
+static int firestore_receive_body_len = 0;
+
+static char *FIRESTORE_HTTP_RECEIVE_BODY = NULL;
+
+void firestore_utils_init()
+{
+    // initialize the receive body buffer over SPIRAM
+    FIRESTORE_HTTP_RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
+}   
+
+void firestore_utils_cleanup()
+{
+    heap_caps_free(FIRESTORE_HTTP_RECEIVE_BODY);
+    FIRESTORE_HTTP_RECEIVE_BODY = NULL;
+}
 
 esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event);
 
@@ -62,7 +78,7 @@ esp_err_t make_abstract_firestore_api_request(
     esp_http_client_config_t http_config = {
         .host = FIRESTORE_HOSTNAME,
         .path = full_path,
-        .cert_pem = firestore_api_pem_start, // the certificate of the server (can be downloaded from the browser)
+        // .cert_pem = firestore_api_pem_start, // the certificate of the server (can be downloaded from the browser)
         .event_handler = firestore_http_event_handler,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .buffer_size = RECEIVE_BUF_SIZE,
@@ -100,7 +116,7 @@ esp_err_t make_abstract_firestore_api_request(
     {
         ESP_LOGE(TAG, "Failed to perform HTTP request");
         esp_http_client_cleanup(firestore_client_handle);
-        receive_body_len = 0; // reset the receive body length
+        firestore_receive_body_len = 0; // reset the receive body length
 
         return ESP_FAIL;
     }
@@ -129,14 +145,14 @@ esp_err_t make_abstract_firestore_api_request(
             ESP_LOGE(TAG, "Error message: %s", FIRESTORE_HTTP_RECEIVE_BODY);
         }
         esp_http_client_cleanup(firestore_client_handle);
-        receive_body_len = 0; // reset the receive body length
+        firestore_receive_body_len = 0; // reset the receive body length
 
         return ESP_FAIL;
     }
 
 
     esp_http_client_cleanup(firestore_client_handle);
-    receive_body_len = 0; // reset the receive body length
+    firestore_receive_body_len = 0; // reset the receive body length
     ESP_LOGI(TAG, "HTTP request cleanup");
     return ESP_OK;
 }
@@ -244,7 +260,7 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token)
     }
     esp_err_t result = ESP_OK;
     int full_path_size = BASE_PATH_FORMAT_SIZE + strlen(firebase_path) + 1;
-    char *full_path = (char *)malloc(full_path_size);
+    char full_path[full_path_size];
     snprintf(full_path, full_path_size, BASE_PATH_FORMAT, firebase_path);
 
 
@@ -266,14 +282,15 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token)
 
     ESP_LOGD(TAG, "Update mask string: %s", update_mask_string);
 
-    // append "?" + update mask string to the full path
-    int full_path_size_with_update_mask = full_path_size + strlen(update_mask_string) + 2;
-    char *full_path_with_update_mask = (char *)malloc(full_path_size_with_update_mask);
-    snprintf(full_path_with_update_mask, full_path_size_with_update_mask, "%s?%s", full_path, update_mask_string);
+    char return_mask_string[] = "mask.fieldPaths=z&"; // this is to return only the document name 'z' in the response, so that we
+    // wont return the whole document in the response
+
+    // append "?" + return_mask_string + update_mask_string to the full path
+    int full_path_size_with_update_mask = full_path_size + strlen(update_mask_string) + strlen(return_mask_string) + 5;
+    char full_path_with_update_mask[full_path_size_with_update_mask];
+    snprintf(full_path_with_update_mask, full_path_size_with_update_mask, "%s?%s%s", full_path, return_mask_string, update_mask_string);
 
     result = make_abstract_firestore_api_request(full_path_with_update_mask, HTTP_METHOD_PATCH, data, token, NULL);
-    free(full_path);
-    free(full_path_with_update_mask);
     ESP_LOGI(TAG, "Firestore patch request done");
     return result;
 }
@@ -285,11 +302,11 @@ esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
     {
     case HTTP_EVENT_ERROR:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP error");
-        receive_body_len = 0; // reset the receive body length
+        firestore_receive_body_len = 0; // reset the receive body length
         break;
     case HTTP_EVENT_ON_CONNECTED:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP connected to server");
-        receive_body_len = 0; // reset the receive body length
+        firestore_receive_body_len = 0; // reset the receive body length
         break;
     case HTTP_EVENT_HEADERS_SENT:
         ESP_LOGI(TAG_EVENT_HANDLER, "All HTTP headers are sent to server");
@@ -303,27 +320,27 @@ esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
         ESP_LOGI(TAG_EVENT_HANDLER, "received data: %s", (char *)client_event->data);
         if (client_event->user_data)
         {
-            strncpy((char *)client_event->user_data + receive_body_len, // destination buffer
+            strncpy((char *)client_event->user_data + firestore_receive_body_len, // destination buffer
                     (char *)client_event->data,                         // source buffer
                     client_event->data_len);
-            receive_body_len += client_event->data_len;
-            ESP_LOGD(TAG_EVENT_HANDLER, "received data length: %d", receive_body_len);
-            ESP_LOGD(TAG_EVENT_HANDLER, "received data: %s", FIRESTORE_HTTP_RECEIVE_BODY);
+            firestore_receive_body_len += client_event->data_len;
+            ESP_LOGI(TAG_EVENT_HANDLER, "received data length: %d", firestore_receive_body_len);
+            ESP_LOGI(TAG_EVENT_HANDLER, "received data: %s (accumulated)", FIRESTORE_HTTP_RECEIVE_BODY);
         }
 
         break;
     case HTTP_EVENT_ON_FINISH:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP session is finished");
-        *((char *)client_event->user_data + receive_body_len) = '\0'; // write the null terminator to the buffer
-        receive_body_len = 0;                                         // reset the receive body length
+        *((char *)client_event->user_data + firestore_receive_body_len) = '\0'; // write the null terminator to the buffer
+        firestore_receive_body_len = 0;                                         // reset the receive body length
         break;
     case HTTP_EVENT_DISCONNECTED:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP connection is closed");
-        receive_body_len = 0; // reset the receive body length
+        firestore_receive_body_len = 0; // reset the receive body length
         break;
     case HTTP_EVENT_REDIRECT:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP redirect");
-        receive_body_len = 0; // reset the receive body length
+        firestore_receive_body_len = 0; // reset the receive body length
         break;
     }
     return ESP_OK;

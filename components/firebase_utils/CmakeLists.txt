@@ -16,10 +16,10 @@ set(
 
 set(COMPONENT_ADD_INCLUDEDIRS "." )  # For all the .h files
 
-set(
-    COMPONENT_EMBED_FILES
-        "website_certificate/googleapis_com_chain.pem" 
-        "website_certificate/secure_token_googleapis_chain.pem"
-    )
+# set(
+#     COMPONENT_EMBED_FILES
+#         "website_certificate/googleapis_com_chain.pem" 
+#         "website_certificate/secure_token_googleapis_chain.pem"
+#     )
 
 register_component()

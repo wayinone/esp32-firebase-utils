@@ -21,6 +21,10 @@ extern "C"
  */
 esp_err_t firebase_get_access_token_from_refresh_token(char *access_token);
 
+void firebase_auth_init();
+
+void firebase_auth_cleanup();
+
 #ifdef __cplusplus
 }
 #endif

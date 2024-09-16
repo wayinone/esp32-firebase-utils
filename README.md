@@ -37,5 +37,5 @@ They are not used or needed when building with CMake and idf.py.
 * mbedTLS -> Disable mbedtls certificate expiry check (default is disable)
 * [v] enable SPIRAM
 * mbedTLS -> Memory allocation strategy -> External SPIRAM
-
+* Component config->ESP LTS-> (enable these options) "Allow potentially insecure options" and then "Skip server verification by default": This skip the https request certificate process
 
