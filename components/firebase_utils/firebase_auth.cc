@@ -30,7 +30,7 @@ static const char *TAG_EVENT_HANDLER = "FIREBASE_AUTH_HTTP_EVENT";
 // extern const char get_token_api_pem_end[] asm("_binary_secure_token_googleapis_chain_pem_end");
 
 static const int SEND_BUF_SIZE = 1024; // this is also called transmit (tx) buffer size
-static const int RECEIVE_BUF_SIZE = 3072;
+static const int RECEIVE_BUF_SIZE = 4096;
 // static char RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
 
 static char *RECEIVE_BODY = NULL;

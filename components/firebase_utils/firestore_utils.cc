@@ -29,29 +29,29 @@ static const int MAX_PATCH_FIELDS = 10;
 static const char BASE_PATH_FORMAT[] = "/v1/projects/" FIREBASE_PROJECT_ID "/" FIRESTORE_DB_ROOT "/%s";
 static const int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
 
-static const int SEND_BUF_SIZE = 3072; // this is also called transmit (tx) buffer size
-static const int RECEIVE_BUF_SIZE = 2048;
+static const int SEND_BUF_SIZE = 4096; // this is also called transmit (tx) buffer size
+static const int RECEIVE_BUF_SIZE = 1024;
 
-// static char FIRESTORE_HTTP_RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
+// static char RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
 // initialize the receive body buffer over SPIRAM
-// static char *FIRESTORE_HTTP_RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
-static int firestore_receive_body_len = 0;
+// static char *RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
+static int receive_body_len = 0;
 
-static char *FIRESTORE_HTTP_RECEIVE_BODY = NULL;
+static char *RECEIVE_BODY = NULL;
 
 void firestore_utils_init()
 {
     // initialize the receive body buffer over SPIRAM
-    FIRESTORE_HTTP_RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
+    RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
 }   
 
 void firestore_utils_cleanup()
 {
-    heap_caps_free(FIRESTORE_HTTP_RECEIVE_BODY);
-    FIRESTORE_HTTP_RECEIVE_BODY = NULL;
+    heap_caps_free(RECEIVE_BODY);
+    RECEIVE_BODY = NULL;
 }
 
-esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event);
+static esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event);
 
 
 
@@ -83,7 +83,7 @@ esp_err_t make_abstract_firestore_api_request(
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .buffer_size = RECEIVE_BUF_SIZE,
         .buffer_size_tx = SEND_BUF_SIZE,
-        .user_data = FIRESTORE_HTTP_RECEIVE_BODY}; // note that FIRESTORE_HTTP_RECEIVE_BODY should be initialized when firebase_auth.cc is called.
+        .user_data = RECEIVE_BODY}; // note that RECEIVE_BODY should be initialized when firebase_auth.cc is called.
 
     if (http_method == HTTP_METHOD_POST || http_method == HTTP_METHOD_PATCH)
     {
@@ -116,7 +116,7 @@ esp_err_t make_abstract_firestore_api_request(
     {
         ESP_LOGE(TAG, "Failed to perform HTTP request");
         esp_http_client_cleanup(firestore_client_handle);
-        firestore_receive_body_len = 0; // reset the receive body length
+        receive_body_len = 0; // reset the receive body length
 
         return ESP_FAIL;
     }
@@ -128,31 +128,31 @@ esp_err_t make_abstract_firestore_api_request(
              (int)esp_http_client_get_content_length(firestore_client_handle));
 
     // get the response body
-    int receive_http_body_size = strlen(FIRESTORE_HTTP_RECEIVE_BODY);
+    int receive_http_body_size = strlen(RECEIVE_BODY);
 
     ESP_LOGD(TAG, "total received body length: %d", receive_http_body_size);
-    ESP_LOGD(TAG, "received body: %s", FIRESTORE_HTTP_RECEIVE_BODY);
+    ESP_LOGD(TAG, "received body: %s", RECEIVE_BODY);
 
     if (receive_http_body != NULL)
     {
-        strncpy(receive_http_body, FIRESTORE_HTTP_RECEIVE_BODY, receive_http_body_size);
+        strncpy(receive_http_body, RECEIVE_BODY, receive_http_body_size);
     }
     if (response_code != 200)
     {
         ESP_LOGE(TAG, "Firestore REST API call failed with HTTP code: %d", response_code);
         if (receive_http_body_size > 0)
         {
-            ESP_LOGE(TAG, "Error message: %s", FIRESTORE_HTTP_RECEIVE_BODY);
+            ESP_LOGE(TAG, "Error message: %s", RECEIVE_BODY);
         }
         esp_http_client_cleanup(firestore_client_handle);
-        firestore_receive_body_len = 0; // reset the receive body length
+        receive_body_len = 0; // reset the receive body length
 
         return ESP_FAIL;
     }
 
 
     esp_http_client_cleanup(firestore_client_handle);
-    firestore_receive_body_len = 0; // reset the receive body length
+    receive_body_len = 0; // reset the receive body length
     ESP_LOGI(TAG, "HTTP request cleanup");
     return ESP_OK;
 }
@@ -295,18 +295,18 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token)
     return result;
 }
 
-esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
+static esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
 {
 
     switch (client_event->event_id)
     {
     case HTTP_EVENT_ERROR:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP error");
-        firestore_receive_body_len = 0; // reset the receive body length
+        receive_body_len = 0; // reset the receive body length
         break;
     case HTTP_EVENT_ON_CONNECTED:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP connected to server");
-        firestore_receive_body_len = 0; // reset the receive body length
+        receive_body_len = 0; // reset the receive body length
         break;
     case HTTP_EVENT_HEADERS_SENT:
         ESP_LOGI(TAG_EVENT_HANDLER, "All HTTP headers are sent to server");
@@ -320,27 +320,27 @@ esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event)
         ESP_LOGI(TAG_EVENT_HANDLER, "received data: %s", (char *)client_event->data);
         if (client_event->user_data)
         {
-            strncpy((char *)client_event->user_data + firestore_receive_body_len, // destination buffer
+            strncpy((char *)client_event->user_data + receive_body_len, // destination buffer
                     (char *)client_event->data,                         // source buffer
                     client_event->data_len);
-            firestore_receive_body_len += client_event->data_len;
-            ESP_LOGI(TAG_EVENT_HANDLER, "received data length: %d", firestore_receive_body_len);
-            ESP_LOGI(TAG_EVENT_HANDLER, "received data: %s (accumulated)", FIRESTORE_HTTP_RECEIVE_BODY);
+            receive_body_len += client_event->data_len;
+            ESP_LOGI(TAG_EVENT_HANDLER, "received data length: %d", receive_body_len);
+            ESP_LOGI(TAG_EVENT_HANDLER, "received data: %s (accumulated)", RECEIVE_BODY);
         }
 
         break;
     case HTTP_EVENT_ON_FINISH:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP session is finished");
-        *((char *)client_event->user_data + firestore_receive_body_len) = '\0'; // write the null terminator to the buffer
-        firestore_receive_body_len = 0;                                         // reset the receive body length
+        *((char *)client_event->user_data + receive_body_len) = '\0'; // write the null terminator to the buffer
+        receive_body_len = 0;                                         // reset the receive body length
         break;
     case HTTP_EVENT_DISCONNECTED:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP connection is closed");
-        firestore_receive_body_len = 0; // reset the receive body length
+        receive_body_len = 0; // reset the receive body length
         break;
     case HTTP_EVENT_REDIRECT:
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP redirect");
-        firestore_receive_body_len = 0; // reset the receive body length
+        receive_body_len = 0; // reset the receive body length
         break;
     }
     return ESP_OK;

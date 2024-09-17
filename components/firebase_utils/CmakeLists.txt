@@ -2,7 +2,6 @@ set(
     COMPONENT_SRCS 
         "firestore_utils.cc"
         "firebase_auth.cc"
-        "firebase_common.cc"
     )
 
 set(
