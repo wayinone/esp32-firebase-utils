@@ -5,7 +5,7 @@
  * Note that I deliberately remove the requirement for website certificate verification
  * So that I can make a request to the Firestore API without having to use the root certificate
  * Remember to go to `idf.py menuconfig` and set
- * Component config->ESP LTS-> (enable these options) "Allow potentially insecure options" and 
+ * Component config->ESP LTS-> (enable these options) "Allow potentially insecure options" and
  * then "Skip server verification by default"
  */
 
@@ -16,6 +16,8 @@
 #include "esp_http_client.h"
 
 #define FIRESTORE_HOSTNAME "firestore.googleapis.com"
+#define FIRESTORE_BASE_PATH_FORMAT "/v1/projects/" FIREBASE_PROJECT_ID "/" FIRESTORE_DB_ROOT "/%s"
+#define FIRESTORE_DUMMY_RETURN_MASK "mask.fieldPaths=z" // this is used to prevent the whole document from being returned when using patch request
 
 static const char *TAG = "FIRESTORE";
 static const char *TAG_EVENT_HANDLER = "FIRESTORE_AUTH_HTTP_EVENT";
@@ -23,15 +25,13 @@ static const char *TAG_EVENT_HANDLER = "FIRESTORE_AUTH_HTTP_EVENT";
 static const int MAX_PATCH_UPSERT_FIELDS = 5; // maximum number of fields that can be patched in a document
 // (too much of this will cause the URL to be too long, resulting stack overflow)
 
-static const char BASE_PATH_FORMAT[] = "/v1/projects/" FIREBASE_PROJECT_ID "/" FIRESTORE_DB_ROOT "/%s";
-static const int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
+static const int BASE_PATH_FORMAT_SIZE = strlen(FIRESTORE_BASE_PATH_FORMAT) + 1;
 
 static const int SEND_BUF_SIZE = 4096; // this is also called transmit (tx) buffer size
 static const int RECEIVE_BUF_SIZE = 1024;
 
-static int receive_body_len = 0;
-
 static char *RECEIVE_BODY = NULL;
+static int receive_body_len = 0;
 
 void firestore_utils_init()
 {
@@ -125,8 +125,8 @@ esp_err_t make_abstract_firestore_api_request(
     // get the response body
     int receive_http_body_size = strlen(RECEIVE_BODY);
 
-    ESP_LOGD(TAG, "total received body length: %d", receive_http_body_size);
-    ESP_LOGD(TAG, "received body: %s", RECEIVE_BODY);
+    ESP_LOGI(TAG, "total received body length: %d", receive_http_body_size);
+    ESP_LOGI(TAG, "received body: %s", RECEIVE_BODY);
 
     if (receive_http_body != NULL)
     {
@@ -183,7 +183,7 @@ esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *docu
 
     int full_path_size = BASE_PATH_FORMAT_SIZE + strlen(firebase_path_to_collection) + 1;
     char full_path[full_path_size];
-    snprintf(full_path, full_path_size, BASE_PATH_FORMAT, firebase_path_to_collection);
+    snprintf(full_path, full_path_size, FIRESTORE_BASE_PATH_FORMAT, firebase_path_to_collection);
 
     result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_POST, data, token, NULL);
     ESP_LOGI(TAG, "Firestore patch request done");
@@ -219,6 +219,7 @@ void extract_keys_from_fields(char *json, char **keys, int *num_keys)
         i++;
     }
     *num_keys = i;
+    cJSON_Delete(root);
 }
 
 /**
@@ -258,10 +259,9 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestor
     esp_err_t result = ESP_OK;
     int full_path_size = BASE_PATH_FORMAT_SIZE + strlen(firebase_path) + 1;
     char full_path[full_path_size];
-    snprintf(full_path, full_path_size, BASE_PATH_FORMAT, firebase_path);
+    snprintf(full_path, full_path_size, FIRESTORE_BASE_PATH_FORMAT, firebase_path);
 
     // the following query parameters prevent whole document from being returned
-    char return_mask_string[] = "mask.fieldPaths=z";
 
     int update_mask_string_size = 0;
     if (patch_type == FIRESTORE_DOC_UPSERT)
@@ -282,16 +282,16 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestor
         char update_mask_string[update_mask_string_size];
         update_mask_string_size = get_update_mask_string(keys, num_keys, update_mask_string);
 
-        // concatenate return_mask_string and update_mask_string
-        char query[update_mask_string_size + strlen(return_mask_string) + 1];
-        snprintf(query, update_mask_string_size + 26, "%s&%s", return_mask_string, update_mask_string);
+        // concatenate FIRESTORE_DUMMY_RETURN_MASK and update_mask_string
+        char query[update_mask_string_size + strlen(FIRESTORE_DUMMY_RETURN_MASK) + 1];
+        snprintf(query, update_mask_string_size + 26, "%s&%s", FIRESTORE_DUMMY_RETURN_MASK, update_mask_string);
 
         ESP_LOGI(TAG, "query: %s", query);
         result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_PATCH, data, token, NULL);
     }
     else // patch_type == OVERWRITE
     {
-        result = make_abstract_firestore_api_request(full_path, return_mask_string, HTTP_METHOD_PATCH, data, token, NULL);
+        result = make_abstract_firestore_api_request(full_path, FIRESTORE_DUMMY_RETURN_MASK, HTTP_METHOD_PATCH, data, token, NULL);
     }
 
     ESP_LOGI(TAG, "Firestore patch request done");
@@ -299,8 +299,77 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestor
 }
 
 /**
+ * @brief Extracts a field value from a json string that returned from Firestore API
+ * For example "{\"fields\": { \"YOUR_FAVORITE_KEY\": {\"integerValue\": \"1000\"}}}";
+ * The value of the field "YOUR_FAVORITE_KEY" ("1000") will be extracted and stored in the `value` buffer
+ *
+ * @param[in] json The json string returned from Firestore API
+ * @param[in] field The field to extract the value from
+ * @param[out] value The buffer to store the value of the field
+ */
+esp_err_t extract_a_field_value_from_firestore_response(char *json, char *field, char *value)
+{
+    cJSON *root = cJSON_Parse(json);
+    cJSON *fields = cJSON_GetObjectItem(root, "fields");
+    cJSON *field_json_object = cJSON_GetObjectItem(fields, field); // e.g. {\"integerValue\": \"1000\"}
+    if (field_json_object == NULL)
+    {
+        ESP_LOGE(TAG, "Field %s not found in the json string", field);
+        cJSON_Delete(root);
+        return ESP_FAIL;
+    }
+
+    //  extract the first value of the object
+    cJSON *type_key = NULL;
+    cJSON_ArrayForEach(type_key, field_json_object)
+    {
+        strcpy(value, type_key->valuestring);
+    }
+    cJSON_Delete(root);
+    return ESP_OK;
+}
+
+esp_err_t firestore_get_a_field_value(char *firebase_path_to_document, char *field, char *token, char *value)
+{
+    esp_err_t result = ESP_OK;
+
+    // ensure that the path is a document path
+    if (is_collection_path(firebase_path_to_document))
+    {
+        ESP_LOGE(TAG, "Invalid path to document. The path %s is a collection path", firebase_path_to_document);
+        return ESP_FAIL;
+    }
+
+    int full_path_size = BASE_PATH_FORMAT_SIZE + strlen(firebase_path_to_document) + 2;
+    char full_path[full_path_size];
+    snprintf(full_path, full_path_size, FIRESTORE_BASE_PATH_FORMAT, firebase_path_to_document);
+
+    // use mask.fieldPaths=field to get only the field value
+    int query_size = strlen("mask.fieldPaths=") + strlen(field) + 2;
+    char query[query_size];
+    snprintf(query, query_size, "mask.fieldPaths=%s", field);
+    ESP_LOGI(TAG, "query: %s", query);
+
+    result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_GET, NULL, token, NULL); // the response body will be stored in RECEIVE_BODY until firestore_utils_cleanup is called
+    /**
+     * A typical receive_http_body, for example, could be
+     * "{\"fields\": { \"Sep30\": {\"integerValue\": \"1000\"}}}";
+     */
+    if (result != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to get the response from Firestore API about field %s", field);
+        ESP_LOGE(TAG, "The response body: %s", RECEIVE_BODY);
+
+        return ESP_FAIL;
+    }
+
+    result = extract_a_field_value_from_firestore_response(RECEIVE_BODY, field, value);
+    return result;
+}
+
+/**
  * @brief HTTP event handler for Firestore API
- * 
+ *
  * TODO: this is exactly copy-pasted from firebase_auth.cc, I can't find a way to make this a shared function
  * (because there is a static variable `receive_body_len` that is used in the function)
  */

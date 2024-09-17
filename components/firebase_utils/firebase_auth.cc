@@ -27,6 +27,7 @@ static const int SEND_BUF_SIZE = 1024; // this is also called transmit (tx) buff
 static const int RECEIVE_BUF_SIZE = 4096;
 
 static char *RECEIVE_BODY = NULL;
+static int receive_body_len = 0;
 
 void firebase_auth_init()
 {
@@ -40,7 +41,6 @@ void firebase_auth_cleanup()
   RECEIVE_BODY = NULL;
 }
 
-static int receive_body_len = 0;
 
 static esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event);
 
