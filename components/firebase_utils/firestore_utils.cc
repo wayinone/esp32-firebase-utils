@@ -10,21 +10,12 @@
 #include "cJSON.h"
 #include "esp_http_client.h"
 
+#define FIRESTORE_HOSTNAME "firestore.googleapis.com"
+
 static const char *TAG = "FIRESTORE";
 static const char *TAG_EVENT_HANDLER = "FIRESTORE_AUTH_HTTP_EVENT";
 
 static const int MAX_PATCH_FIELDS = 10;
-
-#define FIRESTORE_HOSTNAME "firestore.googleapis.com"
-
-/**
- * The following are defined by embedded data in CMakeLists.txt
- * and are used to verify the server's certificate.
- * One can download the certificate from:
- *  Firefox -> put website `FIRESTORE_HOSTNAME` -> click on the lock icon -> More Information -> View Certificate -> Details -> Export
- */
-// extern const char firestore_api_pem_start[] asm("_binary_googleapis_com_chain_pem_start");
-// extern const char firestore_api_pem_end[] asm("_binary_googleapis_com_chain_pem_end");
 
 static const char BASE_PATH_FORMAT[] = "/v1/projects/" FIREBASE_PROJECT_ID "/" FIRESTORE_DB_ROOT "/%s";
 static const int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
@@ -32,9 +23,6 @@ static const int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
 static const int SEND_BUF_SIZE = 4096; // this is also called transmit (tx) buffer size
 static const int RECEIVE_BUF_SIZE = 1024;
 
-// static char RECEIVE_BODY[RECEIVE_BUF_SIZE] = {0};
-// initialize the receive body buffer over SPIRAM
-// static char *RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
 static int receive_body_len = 0;
 
 static char *RECEIVE_BODY = NULL;
@@ -43,7 +31,7 @@ void firestore_utils_init()
 {
     // initialize the receive body buffer over SPIRAM
     RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
-}   
+}
 
 void firestore_utils_cleanup()
 {
@@ -53,13 +41,13 @@ void firestore_utils_cleanup()
 
 static esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event);
 
-
-
 /**
  * @brief Make an abstract API request to API
  *
  * @param[in] full_path The path of your collection and documents.
  * e.g. "col1/doc1", "col1", "col1/doc1/subcol1", or "col1/subcol1/doc1"
+ * @param[in] queries queries The query parameters to be used in the HTTP request.
+ *  e.g. "mask.fieldPaths=z&updateMask.fieldPaths=Oct21&updateMask.fieldPaths=Oct22"
  * @param[in] http_method The HTTP method to use. e.g. HTTP_METHOD_GET, HTTP_METHOD_POST, HTTP_METHOD_PATCH, HTTP_METHOD_DELETE
  * @param[in] http_body The body of the HTTP request. e.g. "{\"fields\": {\"name\": {\"stringValue\": \"John\"}}}"
  * if the request does not require a body, pass NULL
@@ -68,6 +56,7 @@ static esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_ev
  */
 esp_err_t make_abstract_firestore_api_request(
     char *full_path,
+    char *queries,
     esp_http_client_method_t http_method,
     char *http_body,
     char *auth_token,
@@ -78,12 +67,13 @@ esp_err_t make_abstract_firestore_api_request(
     esp_http_client_config_t http_config = {
         .host = FIRESTORE_HOSTNAME,
         .path = full_path,
-        // .cert_pem = firestore_api_pem_start, // the certificate of the server (can be downloaded from the browser)
+        .query = queries,
         .event_handler = firestore_http_event_handler,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .buffer_size = RECEIVE_BUF_SIZE,
         .buffer_size_tx = SEND_BUF_SIZE,
-        .user_data = RECEIVE_BODY}; // note that RECEIVE_BODY should be initialized when firebase_auth.cc is called.
+        .user_data = RECEIVE_BODY // note that this is the response body buffer
+    };
 
     if (http_method == HTTP_METHOD_POST || http_method == HTTP_METHOD_PATCH)
     {
@@ -106,7 +96,6 @@ esp_err_t make_abstract_firestore_api_request(
 
     if (auth_token != NULL)
     {
-        // add 'BEARER ' to the auth_token
         char auth_token_with_bearer[strlen(auth_token) + 8];
         snprintf(auth_token_with_bearer, strlen(auth_token) + 8, "Bearer %s", auth_token);
         esp_http_client_set_header(firestore_client_handle, "Authorization", auth_token_with_bearer);
@@ -150,7 +139,6 @@ esp_err_t make_abstract_firestore_api_request(
         return ESP_FAIL;
     }
 
-
     esp_http_client_cleanup(firestore_client_handle);
     receive_body_len = 0; // reset the receive body length
     ESP_LOGI(TAG, "HTTP request cleanup");
@@ -182,21 +170,16 @@ esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *docu
     }
 
     esp_err_t result = ESP_OK;
-    // the firebase_path is 'firebase_path_to_collection' + '?documentId=' + 'document_name'
-    int firestore_path_size = strlen(firebase_path_to_collection) + strlen(document_name) + 20;
-    char firebase_path[firestore_path_size];
-    int firestore_path_size_real = snprintf(
-        firebase_path, firestore_path_size, "%s?documentId=%s", firebase_path_to_collection, document_name);
+    // the query is "documentID=document_name"
+    int query_size = strlen("documentId=") + strlen(document_name) + 1;
+    char query[query_size];
+    snprintf(query, query_size, "documentId=%s", document_name);
 
-    ESP_LOGI(TAG, "firebase_path: %s\n with size %d\n", firebase_path, firestore_path_size_real);
-
-    int full_path_size = BASE_PATH_FORMAT_SIZE + firestore_path_size_real + 1;
+    int full_path_size = BASE_PATH_FORMAT_SIZE + strlen(firebase_path_to_collection) + 1;
     char full_path[full_path_size];
-    snprintf(full_path, full_path_size, BASE_PATH_FORMAT, firebase_path);
+    snprintf(full_path, full_path_size, BASE_PATH_FORMAT, firebase_path_to_collection);
 
-
-
-    result = make_abstract_firestore_api_request(full_path, HTTP_METHOD_POST, data, token, NULL);
+    result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_POST, data, token, NULL);
     ESP_LOGI(TAG, "Firestore patch request done");
     return result;
 }
@@ -233,8 +216,9 @@ void extract_keys_from_fields(char *json, char **keys, int *num_keys)
  * @param[in] num_fields the number of fields extracted from the json string
  * @param[out] update_mask_string the update mask string to be used in the patch request url
  * e.g. "updateMask.fieldPaths=Oct21&updateMask.fieldPaths=Oct22"
+ * @return int the size of the update mask string
  */
-void get_update_mask_string(char **fields, int num_fields, char *update_mask_string)
+int get_update_mask_string(char **fields, int num_fields, char *update_mask_string)
 {
     int update_mask_string_size = 0;
     for (int i = 0; i < num_fields; i++)
@@ -249,9 +233,10 @@ void get_update_mask_string(char **fields, int num_fields, char *update_mask_str
     }
     update_mask[offset - 1] = '\0';
     strcpy(update_mask_string, update_mask);
+    return strlen(update_mask_string);
 }
 
-esp_err_t firestore_patch(char *firebase_path, char *data, char *token)
+esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestore_patch_type_t patch_type)
 {
     if (is_collection_path(firebase_path))
     {
@@ -263,34 +248,40 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token)
     char full_path[full_path_size];
     snprintf(full_path, full_path_size, BASE_PATH_FORMAT, firebase_path);
 
+    // the following query parameters prevent whole document from being returned
+    char return_mask_string[] = "mask.fieldPaths=z";
 
-    // get the update mask string
-    char *keys[MAX_PATCH_FIELDS];
-    int num_keys = 0;
-    extract_keys_from_fields(data, keys, &num_keys);
-
-    // calculate the size of the update mask string (so that this request will only update or insert the fields in the json body)
     int update_mask_string_size = 0;
-    int update_mask_query_param_size = 26; // strlen("updateMask.fieldPaths=%s&") + 2;
-    for (int i = 0; i < num_keys; i++)
+    if (patch_type == FIRESTORE_DOC_UPSERT)
     {
-        update_mask_string_size += strlen(keys[i]) + update_mask_query_param_size;
+        // get the update mask string
+        char *keys[MAX_PATCH_FIELDS];
+        int num_keys = 0;
+        extract_keys_from_fields(data, keys, &num_keys);
+
+        // calculate the size of the update mask string (so that this request will only update or insert the fields in the json body)
+
+        int update_mask_query_param_size = strlen("updateMask.fieldPaths=%s&") + 2;
+        for (int i = 0; i < num_keys; i++)
+        {
+            update_mask_string_size += strlen(keys[i]) + update_mask_query_param_size;
+        }
+
+        char update_mask_string[update_mask_string_size];
+        update_mask_string_size = get_update_mask_string(keys, num_keys, update_mask_string);
+
+        // concatenate return_mask_string and update_mask_string
+        char query[update_mask_string_size + strlen(return_mask_string) + 1];
+        snprintf(query, update_mask_string_size + 26, "%s&%s", return_mask_string, update_mask_string);
+
+        ESP_LOGI(TAG, "query: %s", query);
+        result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_PATCH, data, token, NULL);
+    }
+    else // patch_type == OVERWRITE
+    {
+        result = make_abstract_firestore_api_request(full_path, return_mask_string, HTTP_METHOD_PATCH, data, token, NULL);
     }
 
-    char update_mask_string[update_mask_string_size];
-    get_update_mask_string(keys, num_keys, update_mask_string);
-
-    ESP_LOGD(TAG, "Update mask string: %s", update_mask_string);
-
-    char return_mask_string[] = "mask.fieldPaths=z&"; // this is to return only the document name 'z' in the response, so that we
-    // wont return the whole document in the response
-
-    // append "?" + return_mask_string + update_mask_string to the full path
-    int full_path_size_with_update_mask = full_path_size + strlen(update_mask_string) + strlen(return_mask_string) + 5;
-    char full_path_with_update_mask[full_path_size_with_update_mask];
-    snprintf(full_path_with_update_mask, full_path_size_with_update_mask, "%s?%s%s", full_path, return_mask_string, update_mask_string);
-
-    result = make_abstract_firestore_api_request(full_path_with_update_mask, HTTP_METHOD_PATCH, data, token, NULL);
     ESP_LOGI(TAG, "Firestore patch request done");
     return result;
 }
@@ -317,7 +308,6 @@ static esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_ev
     case HTTP_EVENT_ON_DATA: // note that this might be called multiple times because the data might be chunked
         ESP_LOGI(TAG_EVENT_HANDLER, "HTTP data received, with length: %d", client_event->data_len);
 
-        ESP_LOGI(TAG_EVENT_HANDLER, "received data: %s", (char *)client_event->data);
         if (client_event->user_data)
         {
             strncpy((char *)client_event->user_data + receive_body_len, // destination buffer
