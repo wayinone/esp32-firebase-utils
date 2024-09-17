@@ -10,6 +10,7 @@
 
 void app_main(void)
 {
+
      /**
      * Initialize the wifi station
      * See readme about how to configure the wifi (ssid and password)
@@ -44,11 +45,11 @@ void app_main(void)
     //  * If the fields do not exist, they will be created.
     //  * * Note that if your firestore doesn't require token, you can pass NULL as the last argument. (This is not recommended, but it is good to test if the firestore is working)
     //  */
-    // printf("Patching a document with upsert method... \n");
-    // firestore_utils_init();
-    // char example_path_record[] = "{\"fields\": { \"Aug04\": {\"integerValue\": \"500\"}, \"Aug05\": {\"integerValue\": \"500\"}}}";
-    // firestore_patch("dev/develop/devices/test_dev/log/2408", example_path_record, access_token, FIRESTORE_DOC_UPSERT);
-    // firestore_utils_cleanup();
+    printf("Patching a document with upsert method... \n");
+    firestore_utils_init();
+    char example_path_record[] = "{\"fields\": { \"Aug05\": {\"integerValue\": \"700\"}, \"Aug06\": {\"integerValue\": \"700\"}}}";
+    firestore_patch("dev/develop/devices/test_dev/log/2408", example_path_record, NULL, FIRESTORE_DOC_UPSERT);
+    firestore_utils_cleanup();
 
     // printf("Patching a document with overwrite method... \n");
     // firestore_utils_init();
@@ -56,14 +57,15 @@ void app_main(void)
     // firestore_patch("dev/develop/devices/test_record_27", overwrite_example_doc, access_token, FIRESTORE_DOC_OVERWRITE);
     // firestore_utils_cleanup();
 
-    /** 
-     * Example of getting a field value from a document
-     */
-    firestore_utils_init();
-    char field_value[10];
-    firestore_get_a_field_value("dev/develop/devices/test_record_27", "Nov01", NULL,  field_value);
-    firestore_utils_cleanup();
-    printf("Field value: %s\n", field_value);
+    // /** 
+    //  * Example of getting a field value from a document
+    //  */
+    // firestore_utils_init();
+    // char field_value[10];
+    // char field_to_get[] = "Nov01";
+    // firestore_get_a_field_value("dev/develop/devices/test_record_27", field_to_get, access_token, field_value);
+    // firestore_utils_cleanup();
+    // printf("Get field \"%s\"'s value: %s\n", field_to_get, field_value);
 
 
 

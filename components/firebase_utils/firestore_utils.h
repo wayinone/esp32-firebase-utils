@@ -57,18 +57,23 @@ extern "C"
      * @brief Get a field value from a document in Firestore
      * https://firebase.google.com/docs/firestore/reference/rest/v1beta1/projects.databases.documents/get
      * Here, we use the query parameter `mask.fieldPaths=field` to get only the field value.
+     * e.g. The following will obtain `val` from the value of field `YOUR_FAVORITE_FIELD` in the document `col1/doc1`
+     * char *val; 
+     * firestore_get_a_field_value("col1/doc1", "YOUR_FAVORITE_FIELD", NULL, val);
      * 
      * @param[in] firebase_path_to_document The path to the document in Firestore.
      * e.g. "col1/doc1" or "col1/doc1/subcol2/doc2"
      * @param[in] field The field to get the value from.
      * @param[in] token The token to authenticate the request.
      * @param[out] value The value of the field.
+     * @return esp_err_t
      */
     esp_err_t firestore_get_a_field_value(char *firebase_path_to_document, char *field, char *token, char *value);
 
     void firestore_utils_init();
 
     void firestore_utils_cleanup();
+
 
 
 #ifdef __cplusplus

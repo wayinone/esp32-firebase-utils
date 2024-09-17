@@ -19,30 +19,35 @@
 #define FIRESTORE_BASE_PATH_FORMAT "/v1/projects/" FIREBASE_PROJECT_ID "/" FIRESTORE_DB_ROOT "/%s"
 #define FIRESTORE_DUMMY_RETURN_MASK "mask.fieldPaths=z" // this is used to prevent the whole document from being returned when using patch request
 
+#define MAX_PATCH_UPDATE_MASK_BUFFER 256 // this buffer will hold string like "updateMask.fieldPaths=Oct21&updateMask.fieldPaths=Oct22"
+#define MAX_PATCH_UPSERT_FIELDS 5
+
 static const char *TAG = "FIRESTORE";
 static const char *TAG_EVENT_HANDLER = "FIRESTORE_AUTH_HTTP_EVENT";
-
-static const int MAX_PATCH_UPSERT_FIELDS = 5; // maximum number of fields that can be patched in a document
-// (too much of this will cause the URL to be too long, resulting stack overflow)
 
 static const int BASE_PATH_FORMAT_SIZE = strlen(FIRESTORE_BASE_PATH_FORMAT) + 1;
 
 static const int SEND_BUF_SIZE = 4096; // this is also called transmit (tx) buffer size
-static const int RECEIVE_BUF_SIZE = 1024;
+static const int RECEIVE_BUF_SIZE = 4096;
 
 static char *RECEIVE_BODY = NULL;
 static int receive_body_len = 0;
+
+static char *PATCH_UPSERT_QUERY_BUFFER = NULL;
 
 void firestore_utils_init()
 {
     // initialize the receive body buffer over SPIRAM
     RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
+    PATCH_UPSERT_QUERY_BUFFER = (char *)heap_caps_malloc(MAX_PATCH_UPDATE_MASK_BUFFER, MALLOC_CAP_SPIRAM);
 }
 
 void firestore_utils_cleanup()
 {
     heap_caps_free(RECEIVE_BODY);
     RECEIVE_BODY = NULL;
+    heap_caps_free(PATCH_UPSERT_QUERY_BUFFER);
+    PATCH_UPSERT_QUERY_BUFFER = NULL;
 }
 
 static esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event);
@@ -65,8 +70,7 @@ esp_err_t make_abstract_firestore_api_request(
     char *queries,
     esp_http_client_method_t http_method,
     char *http_body,
-    char *auth_token,
-    char *receive_http_body)
+    char *auth_token)
 {
 
     esp_http_client_handle_t firestore_client_handle;
@@ -90,6 +94,7 @@ esp_err_t make_abstract_firestore_api_request(
         }
     }
     ESP_LOGI(TAG, "HTTP path: %s", http_config.path);
+    ESP_LOGI(TAG, "HTTP query: %s", http_config.query);
     firestore_client_handle = esp_http_client_init(&http_config);
     ESP_LOGI(TAG, "http config initialized");
 
@@ -125,13 +130,6 @@ esp_err_t make_abstract_firestore_api_request(
     // get the response body
     int receive_http_body_size = strlen(RECEIVE_BODY);
 
-    ESP_LOGI(TAG, "total received body length: %d", receive_http_body_size);
-    ESP_LOGI(TAG, "received body: %s", RECEIVE_BODY);
-
-    if (receive_http_body != NULL)
-    {
-        strncpy(receive_http_body, RECEIVE_BODY, receive_http_body_size);
-    }
     if (response_code != 200)
     {
         ESP_LOGE(TAG, "Firestore REST API call failed with HTTP code: %d", response_code);
@@ -185,7 +183,7 @@ esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *docu
     char full_path[full_path_size];
     snprintf(full_path, full_path_size, FIRESTORE_BASE_PATH_FORMAT, firebase_path_to_collection);
 
-    result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_POST, data, token, NULL);
+    result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_POST, data, token);
     ESP_LOGI(TAG, "Firestore patch request done");
     return result;
 }
@@ -201,52 +199,51 @@ esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *docu
  * e.g. keys[0] = "Oct21", keys[1] = "Oct22"
  * @param[out] num_keys the number of keys extracted from the json string
  */
-void extract_keys_from_fields(char *json, char **keys, int *num_keys)
+void extract_keys_from_fields(cJSON *json_object, char **keys, int *num_keys)
 {
-    cJSON *root = cJSON_Parse(json);
-    cJSON *fields = cJSON_GetObjectItem(root, "fields");
+    cJSON *fields = cJSON_GetObjectItem(json_object, "fields");
     cJSON *field = NULL;
-    // get up to MAX_PATCH_UPSERT_FIELDS keys
     int i = 0;
     cJSON_ArrayForEach(field, fields)
     {
         if (i >= MAX_PATCH_UPSERT_FIELDS)
         {
-            ESP_LOGW(TAG, "WARNING! Maximum number of fields reached");
+            ESP_LOGW(TAG, "The number of fields in the json string exceeds the maximum number of fields allowed");
             break;
         }
         keys[i] = field->string;
         i++;
     }
     *num_keys = i;
-    cJSON_Delete(root);
 }
 
 /**
- * @brief get the update mask string for patch request url query
+ * @brief get the mask and update mask string for patch request url query, for upsert method
+ * It will update the PATCH_UPSERT_QUERY_BUFFER static variable
  *
- * @param[in] fields the array of fields extracted from the json string, e.g. fields[0] = "Oct21", fields[1] = "Oct22"
- * @param[in] num_fields the number of fields extracted from the json string
- * @param[out] update_mask_string the update mask string to be used in the patch request url
+ * @param[in] json_data the json string that contains the fields to be updated
+ * e.g. "{\"fields\": { \"Oct21\": {\"integerValue\": \"100\"}, \"Oct22\": {\"integerValue\": \"100\"}}"
+ * @return void* the update mask string to be used in the patch request url
  * e.g. "updateMask.fieldPaths=Oct21&updateMask.fieldPaths=Oct22"
- * @return int the size of the update mask string
  */
-int get_update_mask_string(char **fields, int num_fields, char *update_mask_string)
+void get_query_for_upsert(char *json_data)
 {
-    int update_mask_string_size = 0;
-    for (int i = 0; i < num_fields; i++)
+    char *keys[MAX_PATCH_UPSERT_FIELDS];
+    int num_keys = 0;
+
+    cJSON *json_object = cJSON_Parse(json_data);
+    extract_keys_from_fields(json_object, keys, &num_keys);
+
+    // put FIRESTORE_DUMMY_RETURN_MASK  in the beginning of the PATCH_UPSERT_QUERY_BUFFER
+    strcpy(PATCH_UPSERT_QUERY_BUFFER, FIRESTORE_DUMMY_RETURN_MASK);
+
+    int offset = strlen(FIRESTORE_DUMMY_RETURN_MASK);
+    for (int i = 0; i < num_keys; i++)
     {
-        update_mask_string_size += strlen(fields[i]) + 25;
+        offset += snprintf(PATCH_UPSERT_QUERY_BUFFER + offset, MAX_PATCH_UPDATE_MASK_BUFFER - offset, "&updateMask.fieldPaths=%s", keys[i]);
     }
-    char update_mask[update_mask_string_size];
-    int offset = 0;
-    for (int i = 0; i < num_fields; i++)
-    {
-        offset += snprintf(update_mask + offset, update_mask_string_size - offset, "updateMask.fieldPaths=%s&", fields[i]);
-    }
-    update_mask[offset - 1] = '\0';
-    strcpy(update_mask_string, update_mask);
-    return strlen(update_mask_string);
+    PATCH_UPSERT_QUERY_BUFFER[offset] = '\0'; // add null terminator
+    cJSON_Delete(json_object);    
 }
 
 esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestore_patch_type_t patch_type)
@@ -266,32 +263,12 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestor
     int update_mask_string_size = 0;
     if (patch_type == FIRESTORE_DOC_UPSERT)
     {
-        // get the update mask string
-        char *keys[MAX_PATCH_UPSERT_FIELDS];
-        int num_keys = 0;
-        extract_keys_from_fields(data, keys, &num_keys);
-
-        // calculate the size of the update mask string (so that this request will only update or insert the fields in the json body)
-
-        int update_mask_query_param_size = strlen("updateMask.fieldPaths=%s&") + 2;
-        for (int i = 0; i < num_keys; i++)
-        {
-            update_mask_string_size += strlen(keys[i]) + update_mask_query_param_size;
-        }
-
-        char update_mask_string[update_mask_string_size];
-        update_mask_string_size = get_update_mask_string(keys, num_keys, update_mask_string);
-
-        // concatenate FIRESTORE_DUMMY_RETURN_MASK and update_mask_string
-        char query[update_mask_string_size + strlen(FIRESTORE_DUMMY_RETURN_MASK) + 1];
-        snprintf(query, update_mask_string_size + 26, "%s&%s", FIRESTORE_DUMMY_RETURN_MASK, update_mask_string);
-
-        ESP_LOGI(TAG, "query: %s", query);
-        result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_PATCH, data, token, NULL);
+        get_query_for_upsert(data); // This will update the PATCH_UPSERT_QUERY_BUFFER static variable
+        result = make_abstract_firestore_api_request(full_path, PATCH_UPSERT_QUERY_BUFFER, HTTP_METHOD_PATCH, data, token);
     }
     else // patch_type == OVERWRITE
     {
-        result = make_abstract_firestore_api_request(full_path, FIRESTORE_DUMMY_RETURN_MASK, HTTP_METHOD_PATCH, data, token, NULL);
+        result = make_abstract_firestore_api_request(full_path, FIRESTORE_DUMMY_RETURN_MASK, HTTP_METHOD_PATCH, data, token);
     }
 
     ESP_LOGI(TAG, "Firestore patch request done");
@@ -350,7 +327,7 @@ esp_err_t firestore_get_a_field_value(char *firebase_path_to_document, char *fie
     snprintf(query, query_size, "mask.fieldPaths=%s", field);
     ESP_LOGI(TAG, "query: %s", query);
 
-    result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_GET, NULL, token, NULL); // the response body will be stored in RECEIVE_BODY until firestore_utils_cleanup is called
+    result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_GET, NULL, token); // the response body will be stored in RECEIVE_BODY until firestore_utils_cleanup is called
     /**
      * A typical receive_http_body, for example, could be
      * "{\"fields\": { \"Sep30\": {\"integerValue\": \"1000\"}}}";
@@ -401,7 +378,6 @@ static esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_ev
                     (char *)client_event->data,                         // source buffer
                     client_event->data_len);
             receive_body_len += client_event->data_len;
-            ESP_LOGI(TAG_EVENT_HANDLER, "received data length: %d", receive_body_len);
         }
 
         break;
