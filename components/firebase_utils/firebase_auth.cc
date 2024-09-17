@@ -163,7 +163,6 @@ static esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_eve
               client_event->data_len);
       receive_body_len += client_event->data_len;
       ESP_LOGD(TAG_EVENT_HANDLER, "received data length: %d", receive_body_len);
-      // ESP_LOGD(TAG_EVENT_HANDLER, "received data: %s", RECEIVE_BODY);
     }
 
     break;
