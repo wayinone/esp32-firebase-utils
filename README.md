@@ -1,41 +1,45 @@
-# _Sample project_
-
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
-
-This is the simplest buildable example. The example is used by command `idf.py create-project`
-that copies the project to user specified path and set it's name. For more information follow the [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
+# ESP32-FIREBASE-UTILS
+This repo provides some useful APIs for esp32 developer to interact with Firebase Firestore. 
 
 
+# APIs
+Currently the APIs here includes:
+* Acquire access token with refresh token
+  * Note that refresh token will never expired until you delete the corresponding private key from (GCP -> service account -> key)
+  * User of this should store the refresh key in `menuconfig` -> FIREBASE_REFRESH_TOKEN
+* Firestore data IO
+  * Create a document
+  * Upsert or overwrite a document
+  * get a value from specified field from a document
 
-## How to use example
-We encourage the users to use the example as a template for the new projects.
-A recommended way is to follow the instructions on a [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project).
+## Menu Configuration for this Component
+  `idf.py menuconfig` -> Firebase Utils Configuration
 
-## Example folder contents
+## Coding Philosophy
+* While developing this, I realize that even 100 bytes variable shouldn't be put into stack, so I make most of the long string with SPIRAM.
+* I will assume user that use this code wouldn't want to flash the code every time because of the change google API website certificate. So I remove the certification part from the http request.
 
-The project **sample_project** contains one source file in C language [main.c](main/main.c). The file is located in folder [main](main).
+## Using the code
+* If you expect a long response from the official rest APIs used here, then you will hit stack overflow.
+* When patching a field with `firestore_path` , I put a limit (5) to how many fields can be patched, this is to ensure the request query isn't too long to cause trouble.
+* You should keep the json content small so that request string will not too long. 
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt`
-files that provide set of directives and instructions describing the project's source files and targets
-(executable, library, or both). 
 
-Below is short explanation of remaining files in the project folder.
-
-```
-├── CMakeLists.txt
-├── main
-│   ├── CMakeLists.txt
-│   └── main.c
-└── README.md                  This is the file you are currently reading
-```
-Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
-They are not used or needed when building with CMake and idf.py.
-
+## Examples
+In `main/main.c` there is example of using the API.
 
 # Kconfigproject.build
 
-* mbedTLS -> Disable mbedtls certificate expiry check (default is disable)
 * [v] enable SPIRAM
 * mbedTLS -> Memory allocation strategy -> External SPIRAM
 * Component config->ESP LTS-> (enable these options) "Allow potentially insecure options" and then "Skip server verification by default": This skip the https request certificate process
+
+i.e.
+```
+CONFIG_ESP_TLS_INSECURE=y
+CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y
+
+CONFIG_SPIRAM=y
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
+```
 

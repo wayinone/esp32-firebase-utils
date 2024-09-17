@@ -2,12 +2,6 @@
 
 menu "Firebase Utils Configuration"
 
-    config FIREBASE_DEVICE_ID
-        string "Device ID"
-        default "default-device"
-        help
-            The unique device ID for the device. This is used to identify the device in the Firebase database. This should be unique for each device.
-
     config FIREBASE_REFRESH_TOKEN
         string "Refresh Token"
         default ""
