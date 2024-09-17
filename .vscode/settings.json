@@ -21,7 +21,9 @@
         "*.h": "cpp",
         "*.hpp": "cpp",
         "*.html": "html",
-        "cstdio": "cpp"
+        "cstdio": "cpp",
+        "chrono": "cpp",
+        "functional": "cpp"
     },
     "git.ignoreLimitWarning": true
 }

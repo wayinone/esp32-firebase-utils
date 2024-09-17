@@ -37,7 +37,6 @@ static char *PATCH_UPSERT_QUERY_BUFFER = NULL;
 
 void firestore_utils_init()
 {
-    // initialize the receive body buffer over SPIRAM
     RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
     PATCH_UPSERT_QUERY_BUFFER = (char *)heap_caps_malloc(MAX_PATCH_UPDATE_MASK_BUFFER, MALLOC_CAP_SPIRAM);
 }
@@ -167,12 +166,14 @@ bool is_collection_path(char *firebase_path)
 
 esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *document_name, char *data, char *token)
 {
+
     if (!is_collection_path(firebase_path_to_collection))
     {
         ESP_LOGE(TAG, "Invalid path to collection. The path %s is a document path", firebase_path_to_collection);
         return ESP_FAIL;
     }
 
+    firestore_utils_init();
     esp_err_t result = ESP_OK;
     // the query is "documentID=document_name"
     int query_size = strlen("documentId=") + strlen(document_name) + 1;
@@ -185,6 +186,7 @@ esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *docu
 
     result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_POST, data, token);
     ESP_LOGI(TAG, "Firestore patch request done");
+    firestore_utils_cleanup();
     return result;
 }
 
@@ -243,7 +245,7 @@ void get_query_for_upsert(char *json_data)
         offset += snprintf(PATCH_UPSERT_QUERY_BUFFER + offset, MAX_PATCH_UPDATE_MASK_BUFFER - offset, "&updateMask.fieldPaths=%s", keys[i]);
     }
     PATCH_UPSERT_QUERY_BUFFER[offset] = '\0'; // add null terminator
-    cJSON_Delete(json_object);    
+    cJSON_Delete(json_object);
 }
 
 esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestore_patch_type_t patch_type)
@@ -251,8 +253,12 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestor
     if (is_collection_path(firebase_path))
     {
         ESP_LOGE(TAG, "Invalid path to document. The path %s is a collection path", firebase_path);
+
         return ESP_FAIL;
     }
+
+    firestore_utils_init();
+
     esp_err_t result = ESP_OK;
     int full_path_size = BASE_PATH_FORMAT_SIZE + strlen(firebase_path) + 1;
     char full_path[full_path_size];
@@ -272,6 +278,7 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestor
     }
 
     ESP_LOGI(TAG, "Firestore patch request done");
+    firestore_utils_cleanup();
     return result;
 }
 
@@ -308,6 +315,7 @@ esp_err_t extract_a_field_value_from_firestore_response(char *json, char *field,
 
 esp_err_t firestore_get_a_field_value(char *firebase_path_to_document, char *field, char *token, char *value)
 {
+
     esp_err_t result = ESP_OK;
 
     // ensure that the path is a document path
@@ -317,6 +325,7 @@ esp_err_t firestore_get_a_field_value(char *firebase_path_to_document, char *fie
         return ESP_FAIL;
     }
 
+    firestore_utils_init();
     int full_path_size = BASE_PATH_FORMAT_SIZE + strlen(firebase_path_to_document) + 2;
     char full_path[full_path_size];
     snprintf(full_path, full_path_size, FIRESTORE_BASE_PATH_FORMAT, firebase_path_to_document);
@@ -337,10 +346,13 @@ esp_err_t firestore_get_a_field_value(char *firebase_path_to_document, char *fie
         ESP_LOGE(TAG, "Failed to get the response from Firestore API about field %s", field);
         ESP_LOGE(TAG, "The response body: %s", RECEIVE_BODY);
 
+        firestore_utils_cleanup();
         return ESP_FAIL;
     }
 
     result = extract_a_field_value_from_firestore_response(RECEIVE_BODY, field, value);
+
+    firestore_utils_cleanup();
     return result;
 }
 
