@@ -70,11 +70,6 @@ extern "C"
      */
     esp_err_t firestore_get_a_field_value(char *firebase_path_to_document, char *field, char *token, char *value);
 
-    void firestore_utils_init();
-
-    void firestore_utils_cleanup();
-
-
 
 #ifdef __cplusplus
 }
