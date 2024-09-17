@@ -15,7 +15,8 @@
 static const char *TAG = "FIRESTORE";
 static const char *TAG_EVENT_HANDLER = "FIRESTORE_AUTH_HTTP_EVENT";
 
-static const int MAX_PATCH_FIELDS = 10;
+static const int MAX_PATCH_UPSERT_FIELDS = 5; // maximum number of fields that can be patched in a document
+// (too much of this will cause the URL to be too long, resulting stack overflow)
 
 static const char BASE_PATH_FORMAT[] = "/v1/projects/" FIREBASE_PROJECT_ID "/" FIRESTORE_DB_ROOT "/%s";
 static const int BASE_PATH_FORMAT_SIZE = sizeof(BASE_PATH_FORMAT);
@@ -200,9 +201,15 @@ void extract_keys_from_fields(char *json, char **keys, int *num_keys)
     cJSON *root = cJSON_Parse(json);
     cJSON *fields = cJSON_GetObjectItem(root, "fields");
     cJSON *field = NULL;
+    // get up to MAX_PATCH_UPSERT_FIELDS keys
     int i = 0;
     cJSON_ArrayForEach(field, fields)
     {
+        if (i >= MAX_PATCH_UPSERT_FIELDS)
+        {
+            ESP_LOGW(TAG, "WARNING! Maximum number of fields reached");
+            break;
+        }
         keys[i] = field->string;
         i++;
     }
@@ -255,7 +262,7 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestor
     if (patch_type == FIRESTORE_DOC_UPSERT)
     {
         // get the update mask string
-        char *keys[MAX_PATCH_FIELDS];
+        char *keys[MAX_PATCH_UPSERT_FIELDS];
         int num_keys = 0;
         extract_keys_from_fields(data, keys, &num_keys);
 
