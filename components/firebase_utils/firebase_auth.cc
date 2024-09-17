@@ -1,7 +1,13 @@
 /**
  * @file firestore_utils.cc
- * @brief Firestore utility functions based on
- * https://firebase.google.com/docs/firestore/reference/rest/v1beta1/projects.databases.documents/
+ * @brief Firestore auth functions based on google's secure token API
+ * https://cloud.google.com/identity-platform/docs/use-rest-api#section-refresh-token
+ * Note that I deliberately remove the requirement for website certificate verification
+ * So that I can make a request to the Firestore API without having to use the root certificate
+ * Remember to go to `idf.py menuconfig` and set
+ * Component config->ESP LTS-> (enable these options) "Allow potentially insecure options" and 
+ * then "Skip server verification by default"
+ * 
  */
 
 #include "firebase_auth.h"
@@ -119,6 +125,13 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
   return ESP_OK;
 }
 
+
+/**
+ * @brief HTTP event handler for FirebaseAPI
+ * 
+ * TODO: this is exactly copy-pasted from firebase_auth.cc, I can't find a way to make this a shared function
+ * (because there is a static variable `receive_body_len` that is used in the function)
+ */
 static esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event)
 {
 
