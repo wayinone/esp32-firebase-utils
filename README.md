@@ -2,14 +2,16 @@
 This repo provides some useful APIs for esp32 developer to interact with Firebase Firestore. 
 
 # Installation
-To include this into your esp-idf project, add the following in your `idf_component.yaml` file
+To include this into your esp-idf project, add the following **git dependencies** in your `idf_component.yaml` file (note that you should use the latest version here.) For more information about git dependency, you can view official document [here](https://docs.espressif.com/projects/idf-component-manager/en/latest/reference/manifest_file.html#component-dependencies)
 
 ```yaml
 dependencies:
-  wifi-manager:
+  wayinone__esp32-firebase-utils:
     git: "https://github.com/wayinone/esp32-firebase_utils.git"
     path: "components/esp32_firebase_utils"
+    version: "0.0.1"
 ```
+Note that, if for some reason, you would like to change the version, you will have to remove the `dependencies.lock` file from your project's root folder, and rebuild again.
 
 
 ## APIs
@@ -80,7 +82,6 @@ i.e.
 ```
 CONFIG_ESP_TLS_INSECURE=y
 CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y
-
 CONFIG_SPIRAM=y
 CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
 ```
@@ -93,14 +94,13 @@ CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
 
 
 ## How to Run Examples
-First you need to fill the configuration, see the Menu Configuration for this Component Section
-
+First, you need to fill the configuration, see the Menu Configuration for this Component Section
 
 Then you can edit the example in `main/main.c`, and run through usually `idf.py build flash` process.
 
 
 ## Coding Philosophy
-* While developing this, I realize that even 100 bytes variable shouldn't be put into stack, so I make most of the long string with SPIRAM.
+* While developing this, I realize that even 100 bytes variable shouldn't be put into stack, so I make sure that most of the long string with SPIRAM.
 * I will assume user that use this code wouldn't want to flash the code every time because of the change google API website certificate. So I remove the certification part from the http request.
 
 ## License

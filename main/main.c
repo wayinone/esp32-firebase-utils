@@ -4,9 +4,7 @@
 #include "firebase_auth.h"
 #include "station_mode.h"
 #include "esp_heap_caps.h"
-#include "cJSON.h"
 
-// #include "freertos/FreeRTOS.h"
 
 void app_main(void)
 {
@@ -62,6 +60,4 @@ void app_main(void)
     printf("Get field \"%s\"'s value: %s\n", field_to_get, field_value);
 
 
-
-    // heap_caps_free(access_token);
 }
