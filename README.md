@@ -1,6 +1,16 @@
 # ESP32-FIREBASE-UTILS
 This repo provides some useful APIs for esp32 developer to interact with Firebase Firestore. 
 
+# Installation
+To include this into your esp-idf project, add the following in your `idf_component.yaml` file
+
+```yaml
+dependencies:
+  wifi-manager:
+    git: "https://github.com/wayinone/esp32-firebase_utils.git"
+    path: "components/esp32_firebase_utils"
+```
+
 
 ## APIs
 Currently the APIs here includes:
