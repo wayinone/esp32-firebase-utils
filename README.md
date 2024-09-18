@@ -29,37 +29,47 @@ Currently the APIs here includes:
   printf("Access token: %s\n", access_token); // This token is valid for 1 hour
   ```
 * **Firestore data IO**
-  * `firestore_createDocument`: Create a document (It will throw error if document is existed. Note that all the paths to the collection specified don't need to be existed.)
+  ```cpp
+  #include "firestore_utils.h"
+  ```
+  Note that for the following examples, if your database doesn't require token, you can replace the `access_token` with `NULL`.
+  * **`firestore_createDocument`**: Create a document (It will throw error if document is existed. Note that all the paths to the collection specified don't need to be existed.)
     ```cpp
-
-    #include "firestore_utils.h"
-
     char example_doc[] = "{\"fields\": { \"Sep30\": {\"integerValue\": \"1000\"}}}";
-    firestore_createDocument("dev/develop/devices", "test_record_27", example_doc, access_token);
 
+    firestore_createDocument("dev/develop/devices", "test_record_27", example_doc, access_token);
     ```
-  * `firestore_path`: Patch a document
-      firestore_patch("dev/develop/devices/test_dev/log/2408", example_path_record, access_token, FIRESTORE_DOC_UPSERT);
+  * **`firestore_patch`**: Patch a document (insert, update, or overwrite)
     * mode `FIRESTORE_DOC_UPSERT`:  Upsert (insert new fields or update existed fields. This will create document if not existed)
       ```cpp
-      #include "firestore_utils.h"
-
       char example_path_record[] = "{\"fields\": { \"Aug05\": {\"integerValue\": \"700\"}, \"Aug06\": {\"integerValue\": \"700\"}}}";
-      firestore_patch("dev/develop/devices/test_dev/log/2408", example_path_record, access_token, FIRESTORE_DOC_UPSERT);
+
+      firestore_patch
+        "dev/develop/devices/test_dev/log/2408", 
+        example_path_record, 
+        access_token, 
+        FIRESTORE_DOC_UPSERT);
       ```
     * mode `FIRESTORE_DOC_OVERWRITE`: Overwrite (This will overwrite any existed fields. Also document will be created if not existed)
       ```cpp
-      printf("Patching a document with overwrite method... \n");
-      char overwrite_example_doc[] = "{\"fields\": { \"Nov01\": {\"integerValue\": \"20\"}}}"; // This will overwrite the entire document
-      firestore_patch("dev/develop/devices/test_record_27", overwrite_example_doc, access_token, FIRESTORE_DOC_OVERWRITE);
-      ```
-  * `firestore_get_a_field_value`: get a value from specified field from a document
-    ```cpp
-    #include "firestore_utils.h"
+      char overwrite_example_doc[] = "{\"fields\": { \"Nov01\": {\"integerValue\": \"20\"}}}"; 
 
+      firestore_patch(
+        "dev/develop/devices/test_record_27", 
+        overwrite_example_doc,
+        access_token,
+        FIRESTORE_DOC_OVERWRITE);
+      ```
+  * **`firestore_get_a_field_value`**: get a value from specified field from a document
+    ```cpp
     char field_value[10];
     char field_to_get[] = "Nov01";
-    firestore_get_a_field_value("dev/develop/devices/test_record_27", field_to_get, access_token, field_value);
+    
+    firestore_get_a_field_value(
+      "dev/develop/devices/test_record_27", 
+      field_to_get, 
+      access_token, 
+      field_value);
 
     printf("Get field \"%s\"'s value: %s\n", field_to_get, field_value);
     ```
@@ -89,7 +99,7 @@ CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
 
 ## Using the code
 * If you expect a long response from the official rest APIs used here, then you will hit stack overflow.
-* When patching a field with `firestore_path` , I put a limit (5) to how many fields can be patched, this is to ensure the request query isn't too long to cause trouble.
+* When patching a field with `firestore_patch` function, I put a limit (5) to how many fields can be patched, this is to ensure the request query isn't too long to cause trouble.
 * You should keep the json content small so that request string will not too long. 
 
 
@@ -102,6 +112,11 @@ Then you can edit the example in `main/main.c`, and run through usually `idf.py 
 ## Coding Philosophy
 * While developing this, I realize that even 100 bytes variable shouldn't be put into stack, so I make sure that most of the long string with SPIRAM.
 * I will assume user that use this code wouldn't want to flash the code every time because of the change google API website certificate. So I remove the certification part from the http request.
+
+
+## Credits
+* The firestore part of code takes references from [kaizoku-oh/firestore](https://github.com/kaizoku-oh). 
+
 
 ## License
 *esp32-firebase-utils* is MIT licensed. As such, it can be included in any project, commercial or not, as long as you retain original copyright. Please make sure to read the license file.
