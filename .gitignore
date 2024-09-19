@@ -9,3 +9,4 @@ gcp_auth/src/*.egg-info/
 gcp_auth/notebook
 
 .DS_Store
+**/.ipynb_checkpoints
