@@ -11,4 +11,5 @@ gcp_auth/notebook
 .DS_Store
 **/.ipynb_checkpoints
 .vscode/
+.devcontainer/
 dependencies.lock
