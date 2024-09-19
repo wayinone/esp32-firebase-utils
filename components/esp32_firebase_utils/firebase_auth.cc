@@ -19,9 +19,11 @@
 #include "cJSON.h"
 
 #define FIREBASE_TOKEN_REQUEST_HOSTNAME "securetoken.googleapis.com"
+#define FIREBASE_AUTH_PATH "/v1/token?key=" FIREBASE_API_KEY
+#define FIREBASE_AUTH_BODY "grant_type=refresh_token&refresh_token=" FIREBASE_REFRESH_TOKEN
 
-static const char *TAG = "FIREBASE_AUTH";
-static const char *TAG_EVENT_HANDLER = "FIREBASE_AUTH_HTTP_EVENT";
+static const char *TAG = "FB_AUTH";
+static const char *TAG_EVENT_HANDLER = "FB_EVENT";
 
 static const int SEND_BUF_SIZE = 1024; // this is also called transmit (tx) buffer size
 static const int RECEIVE_BUF_SIZE = 4096;
@@ -65,12 +67,9 @@ void get_value_from_json(const char *json, const char *key, char *value)
 esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
 {
 
-  char full_path[] = "/v1/token?key=" FIREBASE_API_KEY;
-  char http_body[] = "grant_type=refresh_token&refresh_token=" FIREBASE_REFRESH_TOKEN;
-
   esp_http_client_config_t http_config = {
       .host = FIREBASE_TOKEN_REQUEST_HOSTNAME,
-      .path = full_path,
+      .path = FIREBASE_AUTH_PATH,
       .method = HTTP_METHOD_POST,
       .event_handler = firebase_http_event_handler,
       .transport_type = HTTP_TRANSPORT_OVER_SSL,
@@ -83,7 +82,7 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
   ESP_LOGI(TAG, "http config initialized");
 
   esp_http_client_set_header(firebase_client_handle, "Content-Type", "application/x-www-form-urlencoded");
-  esp_http_client_set_post_field(firebase_client_handle, http_body, strlen(http_body));
+  esp_http_client_set_post_field(firebase_client_handle, FIREBASE_AUTH_BODY, strlen(FIREBASE_AUTH_BODY));
 
   ESP_LOGI(TAG, "http headers set up! Making request...");
   if (esp_http_client_perform(firebase_client_handle) != ESP_OK)
@@ -160,7 +159,6 @@ static esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_eve
               client_event->data_len);
       receive_body_len += client_event->data_len;
     }
-
     break;
   case HTTP_EVENT_ON_FINISH:
     ESP_LOGI(TAG_EVENT_HANDLER, "HTTP session is finished");

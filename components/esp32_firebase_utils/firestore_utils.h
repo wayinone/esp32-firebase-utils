@@ -25,7 +25,7 @@ extern "C"
      * https://firebase.google.com/docs/firestore/reference/rest/v1beta1/projects.databases.documents/createDocument#query-parameters
      * Note that if the document already exists, it will throw an error.
      *
-     * @param[in] firebase_path_to_collection The path to the collection in Firestore.
+     * @param[in] path_to_collection The path to the collection in Firestore.
      * e.g. "col1", or "col1/doc1/subcol1"
      * @param[in] document_name The name of the document to create.
      * @param[in] data The body of the HTTP request. i.e. the content of the document to be sent. *
@@ -33,14 +33,14 @@ extern "C"
      * See https://firebase.google.com/docs/firestore/reference/rest/v1/projects.databases.documents#Document
      * @param[in] token The token to authenticate the request.
      */
-    esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *document_name, char *data, char *token);
+    esp_err_t firestore_createDocument(char *path_to_collection, char *document_name, char *data, char *token);
 
     /**
      * @brief Patch (update or inserts) a document in Firestore
      * https://firebase.google.com/docs/firestore/reference/rest/v1beta1/projects.databases.documents/patch
      * If the document does not exist, it will be created.
      *
-     * @param[in] firebase_path The path to the document in Firestore.
+     * @param[in] path_to_document The path to the document in Firestore.
      * e.g. "col1/doc1" or "col1/doc1/subcol2/doc2"
      * @param[in] data The body of the HTTP request. i.e. the content of the document to be sent.
      * e.g."{\"fields\": { \"Oct23\": {\"integerValue\": \"500\"}, \"Oct22\": {\"integerValue\": \"500\"}}}"
@@ -51,7 +51,7 @@ extern "C"
      * @param[in] token The token to authenticate the request.
      * @param[in] patch_type The type of patch to be done.
      */
-    esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestore_patch_type_t patch_type);
+    esp_err_t firestore_patch(char *path_to_document, char *data, char *token, firestore_patch_type_t patch_type);
 
     /**
      * @brief Get a field value from a document in Firestore
@@ -61,14 +61,14 @@ extern "C"
      * char *val; 
      * firestore_get_a_field_value("col1/doc1", "YOUR_FAVORITE_FIELD", NULL, val);
      * 
-     * @param[in] firebase_path_to_document The path to the document in Firestore.
+     * @param[in] path_to_document The path to the document in Firestore.
      * e.g. "col1/doc1" or "col1/doc1/subcol2/doc2"
      * @param[in] field The field to get the value from.
      * @param[in] token The token to authenticate the request.
      * @param[out] value The value of the field.
      * @return esp_err_t
      */
-    esp_err_t firestore_get_a_field_value(char *firebase_path_to_document, char *field, char *token, char *value);
+    esp_err_t firestore_get_a_field_value(char *path_to_document, char *field, char *token, char *value);
 
 
 #ifdef __cplusplus

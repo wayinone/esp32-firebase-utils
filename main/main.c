@@ -6,15 +6,9 @@
 #include "esp_heap_caps.h"
 
 
-void app_main(void)
+
+void run_examples(void)
 {
-
-     /**
-     * Initialize the wifi station
-     * See readme about how to configure the wifi (ssid and password)
-     */
-    initWifiSta();
-
     /**
      * Example of getting an access token from a refresh token
     //  */
@@ -58,6 +52,35 @@ void app_main(void)
     firestore_get_a_field_value("dev/develop/devices/test_record_27", field_to_get, access_token, field_value);
 
     printf("Get field \"%s\"'s value: %s\n", field_to_get, field_value);
+}
 
+void app_main(void)
+{
+    /**
+     * Initialize the wifi station
+     * See readme about how to configure the wifi (ssid and password)
+     */
+    initWifiSta();
+
+    firebase_auth_init();
+    char *access_token = (char *)heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
+    firebase_get_access_token_from_refresh_token(access_token);
+    firebase_auth_cleanup();
+
+    
+    char path_format[] = "dev/develop/devices/%s/log/2408";
+    char path[128];
+    char* device_id = "qmhvz";
+    snprintf(path, 60, path_format, device_id);
+    printf("patching document to %s\n", path);
+    char example_path_record[] = "{\"fields\": { \"T00090\": {\"integerValue\": \"700\"}}}";
+    firestore_patch(path, example_path_record, access_token, FIRESTORE_DOC_UPSERT);
+
+    device_id = "flm9y";
+    snprintf(path, 60, path_format, device_id);
+    printf("patching document to %s\n", path);
+    firestore_patch(path, example_path_record, access_token, FIRESTORE_DOC_UPSERT);
+
+    heap_caps_free(access_token);
 
 }
