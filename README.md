@@ -148,6 +148,7 @@ Then you can edit the example in `main/main.c`, and run through usually `idf.py 
 * A refresh token can be generated with a service account. The usage of it is that it allows devices write to Google's service like Firestore without user to log in (the log in token only valid for 1 hour).
 * A single service account (with sufficient roles attached) can generate a private key, and generate multiple refreshed accounts, each with a special JWT subject (`uid`), that can be used in Authentication.
   * E.g. in Firestore Rules, you can use `request.auth.uid` keyword to ensure the JWT subject is allowed in the service.
+* In this repo we also provides a cli to help you get refresh token from a private key. See [here](gcp_auth/README.md).
 
 
 ## License
