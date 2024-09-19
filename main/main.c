@@ -12,10 +12,8 @@ void run_examples(void)
     /**
      * Example of getting an access token from a refresh token
     //  */
-    firebase_auth_init();
     char *access_token = (char *)heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
     firebase_get_access_token_from_refresh_token(access_token);
-    firebase_auth_cleanup();
     printf("Access token: %s\n", access_token); // This token is valid for 1 hour
 
     /**
@@ -62,25 +60,25 @@ void app_main(void)
      */
     initWifiSta();
 
-    firebase_auth_init();
     char *access_token = (char *)heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
     firebase_get_access_token_from_refresh_token(access_token);
-    firebase_auth_cleanup();
+
+    fprintf(stdout, "Access token: %s\n", access_token); // This token is valid for 1 hour
 
     
-    char path_format[] = "dev/develop/devices/%s/log/2408";
-    char path[128];
-    char* device_id = "qmhvz";
-    snprintf(path, 60, path_format, device_id);
-    printf("patching document to %s\n", path);
-    char example_path_record[] = "{\"fields\": { \"T00090\": {\"integerValue\": \"700\"}}}";
-    firestore_patch(path, example_path_record, access_token, FIRESTORE_DOC_UPSERT);
+    // char path_format[] = "dev/develop/devices/%s/log/2408";
+    // char path[128];
+    // char* device_id = "qmhvz";
+    // snprintf(path, 60, path_format, device_id);
+    // printf("patching document to %s\n", path);
+    // char example_path_record[] = "{\"fields\": { \"T00090\": {\"integerValue\": \"700\"}}}";
+    // firestore_patch(path, example_path_record, access_token, FIRESTORE_DOC_UPSERT);
 
-    device_id = "flm9y";
-    snprintf(path, 60, path_format, device_id);
-    printf("patching document to %s\n", path);
-    firestore_patch(path, example_path_record, access_token, FIRESTORE_DOC_UPSERT);
+    // device_id = "flm9y";
+    // snprintf(path, 60, path_format, device_id);
+    // printf("patching document to %s\n", path);
+    // firestore_patch(path, example_path_record, access_token, FIRESTORE_DOC_UPSERT);
 
-    heap_caps_free(access_token);
+    // heap_caps_free(access_token);
 
 }
