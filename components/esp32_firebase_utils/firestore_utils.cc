@@ -19,11 +19,12 @@
 #define FIRESTORE_BASE_PATH_FORMAT "/v1/projects/" FIREBASE_PROJECT_ID "/" FIRESTORE_DB_ROOT "/%s"
 #define FIRESTORE_DUMMY_RETURN_MASK "mask.fieldPaths=z" // this is used to prevent the whole document from being returned when using patch request
 
-#define MAX_PATCH_UPDATE_MASK_BUFFER 256 // this buffer will hold string like "updateMask.fieldPaths=Oct21&updateMask.fieldPaths=Oct22"
+#define PATCH_UPDATE_MASK_BUFFER_SIZE 256 // this buffer will hold string like "updateMask.fieldPaths=Oct21&updateMask.fieldPaths=Oct22"
 #define MAX_PATCH_UPSERT_FIELDS 5
+#define PATH_BUFFER_SIZE 256
 
-static const char *TAG = "FIRESTORE";
-static const char *TAG_EVENT_HANDLER = "FIRESTORE_AUTH_HTTP_EVENT";
+static const char *TAG = "FB_FS";
+static const char *TAG_EVENT_HANDLER = "FS_EVENT";
 
 static const int BASE_PATH_FORMAT_SIZE = strlen(FIRESTORE_BASE_PATH_FORMAT) + 1;
 
@@ -34,11 +35,13 @@ static char *RECEIVE_BODY = NULL;
 static int receive_body_len = 0;
 
 static char *PATCH_UPSERT_QUERY_BUFFER = NULL;
+static char *PATH_BUFFER = NULL;
 
 void firestore_utils_init()
 {
     RECEIVE_BODY = (char *)heap_caps_malloc(RECEIVE_BUF_SIZE, MALLOC_CAP_SPIRAM);
-    PATCH_UPSERT_QUERY_BUFFER = (char *)heap_caps_malloc(MAX_PATCH_UPDATE_MASK_BUFFER, MALLOC_CAP_SPIRAM);
+    PATCH_UPSERT_QUERY_BUFFER = (char *)heap_caps_malloc(PATCH_UPDATE_MASK_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+    PATH_BUFFER = (char *)heap_caps_malloc(PATH_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
 }
 
 void firestore_utils_cleanup()
@@ -47,6 +50,8 @@ void firestore_utils_cleanup()
     RECEIVE_BODY = NULL;
     heap_caps_free(PATCH_UPSERT_QUERY_BUFFER);
     PATCH_UPSERT_QUERY_BUFFER = NULL;
+    heap_caps_free(PATH_BUFFER);
+    PATH_BUFFER = NULL;
 }
 
 static esp_err_t firestore_http_event_handler(esp_http_client_event_t *client_event);
@@ -180,11 +185,9 @@ esp_err_t firestore_createDocument(char *firebase_path_to_collection, char *docu
     char query[query_size];
     snprintf(query, query_size, "documentId=%s", document_name);
 
-    int full_path_size = BASE_PATH_FORMAT_SIZE + strlen(firebase_path_to_collection) + 1;
-    char full_path[full_path_size];
-    snprintf(full_path, full_path_size, FIRESTORE_BASE_PATH_FORMAT, firebase_path_to_collection);
+    snprintf(PATH_BUFFER, PATH_BUFFER_SIZE, FIRESTORE_BASE_PATH_FORMAT, firebase_path_to_collection);
 
-    result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_POST, data, token);
+    result = make_abstract_firestore_api_request(PATH_BUFFER, query, HTTP_METHOD_POST, data, token);
     ESP_LOGI(TAG, "Firestore patch request done");
     firestore_utils_cleanup();
     return result;
@@ -242,17 +245,17 @@ void get_query_for_upsert(char *json_data)
     int offset = strlen(FIRESTORE_DUMMY_RETURN_MASK);
     for (int i = 0; i < num_keys; i++)
     {
-        offset += snprintf(PATCH_UPSERT_QUERY_BUFFER + offset, MAX_PATCH_UPDATE_MASK_BUFFER - offset, "&updateMask.fieldPaths=%s", keys[i]);
+        offset += snprintf(PATCH_UPSERT_QUERY_BUFFER + offset, PATCH_UPDATE_MASK_BUFFER_SIZE - offset, "&updateMask.fieldPaths=%s", keys[i]);
     }
     PATCH_UPSERT_QUERY_BUFFER[offset] = '\0'; // add null terminator
     cJSON_Delete(json_object);
 }
 
-esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestore_patch_type_t patch_type)
+esp_err_t firestore_patch(char *path_to_document, char *data, char *token, firestore_patch_type_t patch_type)
 {
-    if (is_collection_path(firebase_path))
+    if (is_collection_path(path_to_document))
     {
-        ESP_LOGE(TAG, "Invalid path to document. The path %s is a collection path", firebase_path);
+        ESP_LOGE(TAG, "Invalid path to document. The path %s is a collection path", path_to_document);
 
         return ESP_FAIL;
     }
@@ -260,9 +263,8 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestor
     firestore_utils_init();
 
     esp_err_t result = ESP_OK;
-    int full_path_size = BASE_PATH_FORMAT_SIZE + strlen(firebase_path) + 1;
-    char full_path[full_path_size];
-    snprintf(full_path, full_path_size, FIRESTORE_BASE_PATH_FORMAT, firebase_path);
+
+    snprintf(PATH_BUFFER, PATH_BUFFER_SIZE, FIRESTORE_BASE_PATH_FORMAT, path_to_document);
 
     // the following query parameters prevent whole document from being returned
 
@@ -270,11 +272,11 @@ esp_err_t firestore_patch(char *firebase_path, char *data, char *token, firestor
     if (patch_type == FIRESTORE_DOC_UPSERT)
     {
         get_query_for_upsert(data); // This will update the PATCH_UPSERT_QUERY_BUFFER static variable
-        result = make_abstract_firestore_api_request(full_path, PATCH_UPSERT_QUERY_BUFFER, HTTP_METHOD_PATCH, data, token);
+        result = make_abstract_firestore_api_request(PATH_BUFFER, PATCH_UPSERT_QUERY_BUFFER, HTTP_METHOD_PATCH, data, token);
     }
     else // patch_type == OVERWRITE
     {
-        result = make_abstract_firestore_api_request(full_path, FIRESTORE_DUMMY_RETURN_MASK, HTTP_METHOD_PATCH, data, token);
+        result = make_abstract_firestore_api_request(PATH_BUFFER, FIRESTORE_DUMMY_RETURN_MASK, HTTP_METHOD_PATCH, data, token);
     }
 
     ESP_LOGI(TAG, "Firestore patch request done");
@@ -313,22 +315,21 @@ esp_err_t extract_a_field_value_from_firestore_response(char *json, char *field,
     return ESP_OK;
 }
 
-esp_err_t firestore_get_a_field_value(char *firebase_path_to_document, char *field, char *token, char *value)
+esp_err_t firestore_get_a_field_value(char *path_to_document, char *field, char *token, char *value)
 {
 
     esp_err_t result = ESP_OK;
 
     // ensure that the path is a document path
-    if (is_collection_path(firebase_path_to_document))
+    if (is_collection_path(path_to_document))
     {
-        ESP_LOGE(TAG, "Invalid path to document. The path %s is a collection path", firebase_path_to_document);
+        ESP_LOGE(TAG, "Invalid path to document. The path %s is a collection path", path_to_document);
         return ESP_FAIL;
     }
 
     firestore_utils_init();
-    int full_path_size = BASE_PATH_FORMAT_SIZE + strlen(firebase_path_to_document) + 2;
-    char full_path[full_path_size];
-    snprintf(full_path, full_path_size, FIRESTORE_BASE_PATH_FORMAT, firebase_path_to_document);
+    
+    snprintf(PATH_BUFFER, PATH_BUFFER_SIZE, FIRESTORE_BASE_PATH_FORMAT, path_to_document);
 
     // use mask.fieldPaths=field to get only the field value
     int query_size = strlen("mask.fieldPaths=") + strlen(field) + 2;
@@ -336,7 +337,7 @@ esp_err_t firestore_get_a_field_value(char *firebase_path_to_document, char *fie
     snprintf(query, query_size, "mask.fieldPaths=%s", field);
     ESP_LOGI(TAG, "query: %s", query);
 
-    result = make_abstract_firestore_api_request(full_path, query, HTTP_METHOD_GET, NULL, token); // the response body will be stored in RECEIVE_BODY until firestore_utils_cleanup is called
+    result = make_abstract_firestore_api_request(PATH_BUFFER, query, HTTP_METHOD_GET, NULL, token); // the response body will be stored in RECEIVE_BODY until firestore_utils_cleanup is called
     /**
      * A typical receive_http_body, for example, could be
      * "{\"fields\": { \"Sep30\": {\"integerValue\": \"1000\"}}}";
