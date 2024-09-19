@@ -15,7 +15,7 @@ dependencies:
     version: "0.0.1"
 ```
 
-Note that, if for some reason, you would like to change the version, you will have to remove the `dependencies.lock` file from your project's root folder, and rebuild again.
+Note that, if for some reason, you would like to change the version, you will have to remove the `dependencies.lock` file from your project's root folder, and rebuild again (either by running command `idf.py reconfigure` or simply `idf.py build`)
 
 ## APIs
 
@@ -141,7 +141,7 @@ Then you can edit the example in `main/main.c`, and run through usually `idf.py 
 
 ## Credits
 
-* The firestore part of code takes references from [kaizoku-oh/firestore](https://github.com/kaizoku-oh). 
+* The firestore part of code was simplified from [kaizoku-oh/firestore](https://github.com/kaizoku-oh).
 
 ## License
 
