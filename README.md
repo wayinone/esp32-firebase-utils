@@ -1,6 +1,7 @@
 # ESP32-FIREBASE-UTILS
 
-This repo provides some useful APIs for esp32 developer to interact with Firebase Firestore. 
+This repo provides some useful APIs for esp32 developer to interact with Firebase Firestore.
+This includes basic authentication and firestore read / write functions.
 
 ## Installation
 
@@ -17,6 +18,14 @@ dependencies:
 Note that, if for some reason, you would like to change the version, you will have to remove the `dependencies.lock` file from your project's root folder, and rebuild again.
 
 ## APIs
+
+Note that all the APIs here are wrappers of Firebase's REST API, hence, WIFI is necessary. 
+  * If you don't have WIFI setup in your project, you can simply include my `components/wifi` (by copy paste or use `idf_component.yaml` like above, with `path: "components/wifi`. Then set your WIFI's SSID and password in `idf.py menuconfig`-> WIFI STA Configuration)
+  
+    ```cpp
+    #include "station_mode.h"
+    initWifiSta();
+    ```
 
 Currently the APIs here includes:
 
@@ -48,6 +57,8 @@ Currently the APIs here includes:
     ```
 
   * **`firestore_patch`**: Patch a document (insert, update, or overwrite)
+    
+    There are two modes available:
     * mode `FIRESTORE_DOC_UPSERT`:  Upsert (insert new fields or update existed fields. This will create document if not existed)
   
       ```cpp
@@ -72,7 +83,7 @@ Currently the APIs here includes:
         FIRESTORE_DOC_OVERWRITE);
       ```
 
-  * **`firestore_get_a_field_value`**: get a value from specified field from a document
+  * **`firestore_get_a_field_value`**: Get a value from a specified field from a document
   
     ```cpp
     char field_value[10];
