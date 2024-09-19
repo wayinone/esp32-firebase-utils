@@ -10,7 +10,7 @@ To include this into your esp-idf project, add the following **git dependencies*
 ```yaml
 dependencies:
   wayinone_esp32-firebase-utils:
-    git: "https://github.com/wayinone/esp32-firebase_utils.git"
+    git: "https://github.com/wayinone/esp32-firebase-utils.git"
     path: "components/esp32_firebase_utils"
     version: "v0.1.2"
 ```
