@@ -5,8 +5,6 @@
 #include "station_mode.h"
 #include "esp_heap_caps.h"
 
-
-
 void run_examples(void)
 {
     /**
@@ -41,8 +39,7 @@ void run_examples(void)
     char overwrite_example_doc[] = "{\"fields\": { \"Nov01\": {\"integerValue\": \"20\"}}}"; // This will overwrite the entire document
     firestore_patch("dev/develop/devices/test_record_27", overwrite_example_doc, access_token, FIRESTORE_DOC_OVERWRITE);
 
-
-    /** 
+    /**
      * Example of getting a field value from a document
      */
     char field_value[10];
@@ -60,25 +57,5 @@ void app_main(void)
      */
     initWifiSta();
 
-    char *access_token = (char *)heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
-    firebase_get_access_token_from_refresh_token(access_token);
-
-    fprintf(stdout, "Access token: %s\n", access_token); // This token is valid for 1 hour
-
-    
-    // char path_format[] = "dev/develop/devices/%s/log/2408";
-    // char path[128];
-    // char* device_id = "qmhvz";
-    // snprintf(path, 60, path_format, device_id);
-    // printf("patching document to %s\n", path);
-    // char example_path_record[] = "{\"fields\": { \"T00090\": {\"integerValue\": \"700\"}}}";
-    // firestore_patch(path, example_path_record, access_token, FIRESTORE_DOC_UPSERT);
-
-    // device_id = "flm9y";
-    // snprintf(path, 60, path_format, device_id);
-    // printf("patching document to %s\n", path);
-    // firestore_patch(path, example_path_record, access_token, FIRESTORE_DOC_UPSERT);
-
-    // heap_caps_free(access_token);
-
+    run_examples();
 }
