@@ -7,17 +7,22 @@ menu "Firebase Utils Configuration"
         default ""
         help
             Refresh token is used to get the access token for the device. The token is used to authenticate the device with the Firebase sevice, such as Firestore, etc.
-            To get the refresh token, start by creating a service account under the GCP project (that is linked to the Firebase project). The service account should have these roles 
-            `Service Account OpenID Connect Identity Token Creator` and `Service Account Token Creator`. The create a JSON private key for the service account and use that to create a `custom token`, and from that custom token, get the refresh token.
-            Note that a good practice is to have different private keys (and hence different refresh tokens) for different devices.
+            For more info, see: https://github.com/wayinone/esp32-firebase-utils/blob/main/gcp_auth/README.md
 
-            The refresh token can add JWT subject with the device ID as the subject. This is useful to identify the device in the Firebase database.
+            The refresh token should add a JWT subject with a unique string, e.g. the device ID. This is useful to identify the device in the Firebase database.
+
+    config FIREBASE_REFRESH_TOKEN_JWT_SUBJECT
+        string "Refresh Token JWT Subject (Optional)"
+        default ""
+        help 
+            Optional: This is not used in this component. However, this should be used in projects that include this component. Use this to set your firestore path provides developer a 
+            convinent way to set a Firebase Security Rules. e.g. `request.auth.uid == <the JTW subject stored here>`
     
     config FIREBASE_PROJECT_ID
         string "Project ID"
         default ""
         help
-            The project ID is used to identify the Firebase project. The project ID can be found in the Firebase project settings.
+            The project ID (or say, the project name) is used to identify the Firebase project. The project ID can be found in the Firebase project settings.
 
     config FIREBASE_API_KEY
         string "API Key"
