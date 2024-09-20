@@ -3,14 +3,14 @@
 #include "firestore_utils.h"
 #include "firebase_auth.h"
 #include "station_mode.h"
-#include "esp_heap_caps.h"
+
+char access_token[1024];
 
 void run_examples(void)
 {
     /**
      * Example of getting an access token from a refresh token
     //  */
-    char *access_token = (char *)heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
     firebase_get_access_token_from_refresh_token(access_token);
     printf("Access token: %s\n", access_token); // This token is valid for 1 hour
 
