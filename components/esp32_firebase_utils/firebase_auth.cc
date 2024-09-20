@@ -131,7 +131,7 @@ esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
   get_value_from_json(RECEIVE_BODY, "id_token", access_token);
   
   firebase_auth_cleanup();
-  return ESP_FAIL;
+  return ESP_OK;
 }
 
 /**

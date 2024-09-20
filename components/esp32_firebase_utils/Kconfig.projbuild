@@ -9,13 +9,14 @@ menu "Firebase Utils Configuration"
             Refresh token is used to get the access token for the device. The token is used to authenticate the device with the Firebase sevice, such as Firestore, etc.
             For more info, see: https://github.com/wayinone/esp32-firebase-utils/blob/main/gcp_auth/README.md
 
-            The refresh token can add JWT subject with the device ID as the subject. This is useful to identify the device in the Firebase database.
+            The refresh token should add a JWT subject with a unique string, e.g. the device ID. This is useful to identify the device in the Firebase database.
 
     config FIREBASE_REFRESH_TOKEN_JWT_SUBJECT
-        string "Refresh Token JWT Subject"
+        string "Refresh Token JWT Subject (Optional)"
         default ""
-        help (Optional) This is not used in thie project yet. However if should be used in the project the include this component. This allows
-            users to use this with Firebase Security Rules. e.g. `request.auth.uid == <the JTW subject stored here>`
+        help 
+            Optional: This is not used in this component. However, this should be used in projects that include this component. Use this to set your firestore path provides developer a 
+            convinent way to set a Firebase Security Rules. e.g. `request.auth.uid == <the JTW subject stored here>`
     
     config FIREBASE_PROJECT_ID
         string "Project ID"
