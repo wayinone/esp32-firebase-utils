@@ -10,6 +10,12 @@ menu "Firebase Utils Configuration"
             For more info, see: https://github.com/wayinone/esp32-firebase-utils/blob/main/gcp_auth/README.md
 
             The refresh token can add JWT subject with the device ID as the subject. This is useful to identify the device in the Firebase database.
+
+    config FIREBASE_REFRESH_TOKEN_JWT_SUBJECT
+        string "Refresh Token JWT Subject"
+        default ""
+        help (Optional) This is not used in thie project yet. However if should be used in the project the include this component. This allows
+            users to use this with Firebase Security Rules. e.g. `request.auth.uid == <the JTW subject stored here>`
     
     config FIREBASE_PROJECT_ID
         string "Project ID"
