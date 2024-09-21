@@ -309,7 +309,28 @@ esp_err_t extract_a_field_value_from_firestore_response(char *json, char *field,
     cJSON *type_key = NULL;
     cJSON_ArrayForEach(type_key, field_json_object)
     {
-        strcpy(value, type_key->valuestring);
+        switch (type_key->type)
+        {
+        case cJSON_False:
+            strcpy(value, "false");
+            break;
+        case cJSON_True:
+            strcpy(value, "true");
+            break;
+        case cJSON_Number:
+            snprintf(value, 10, "%f", type_key->valuedouble);
+            break;
+        case cJSON_String:
+            strcpy(value, type_key->valuestring);
+            break;
+        case cJSON_Raw:
+            strcpy(value, type_key->valuestring);
+            break;
+        default:
+            ESP_LOGE(TAG, "The type of the field value is not supported");
+            cJSON_Delete(root);
+            return ESP_FAIL;
+        }
     }
     cJSON_Delete(root);
     return ESP_OK;
@@ -328,7 +349,7 @@ esp_err_t firestore_get_a_field_value(char *path_to_document, char *field, char 
     }
 
     firestore_utils_init();
-    
+
     snprintf(PATH_BUFFER, PATH_BUFFER_SIZE, FIRESTORE_BASE_PATH_FORMAT, path_to_document);
 
     // use mask.fieldPaths=field to get only the field value
@@ -351,6 +372,8 @@ esp_err_t firestore_get_a_field_value(char *path_to_document, char *field, char 
         return ESP_FAIL;
     }
 
+    ESP_LOGD(TAG, "the response body: %s", RECEIVE_BODY);
+    ESP_LOGD(TAG, "total received body length: %d", strlen(RECEIVE_BODY));
     result = extract_a_field_value_from_firestore_response(RECEIVE_BODY, field, value);
 
     firestore_utils_cleanup();

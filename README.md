@@ -12,7 +12,7 @@ dependencies:
   wayinone_esp32-firebase-utils:
     git: "https://github.com/wayinone/esp32-firebase-utils.git"
     path: "components/esp32_firebase_utils"
-    version: "v0.1.2"
+    version: "v0.1.4"
 ```
 
 Note that, if for some reason, you would like to change the version, you will have to remove the `dependencies.lock` file from your project's root folder, and rebuild again (either by running command `idf.py reconfigure` or simply `idf.py build`)
