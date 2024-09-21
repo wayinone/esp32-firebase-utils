@@ -1,4 +1,4 @@
-version: "0.1.3"
+version: "0.1.4"
 maintainers: "Wayne Wang"
 description: "API wrappers for Firebase Authentication, and Firestore IO."
 url: "https://github.com/wayinone/esp32-firebase-utils"
