@@ -372,8 +372,8 @@ esp_err_t firestore_get_a_field_value(char *path_to_document, char *field, char 
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "the response body: %s", RECEIVE_BODY);
-    ESP_LOGI(TAG, "total received body length: %d", strlen(RECEIVE_BODY));
+    ESP_LOGD(TAG, "the response body: %s", RECEIVE_BODY);
+    ESP_LOGD(TAG, "total received body length: %d", strlen(RECEIVE_BODY));
     result = extract_a_field_value_from_firestore_response(RECEIVE_BODY, field, value);
 
     firestore_utils_cleanup();
