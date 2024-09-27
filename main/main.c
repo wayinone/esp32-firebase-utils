@@ -6,12 +6,15 @@
 
 char access_token[1024];
 
+
 void run_examples(void)
 {
     /**
      * Example of getting an access token from a refresh token
+     * Note that the refresh token is provided as NULL because we have set the refresh token in CONFIG_FIREBASE_REFRESH_TOKEN
+     * Otherwise, user needs to provide the refresh token as the first argument.
     //  */
-    firebase_get_access_token_from_refresh_token(access_token);
+    firebase_get_access_token_from_refresh_token(NULL, access_token);
     printf("Access token: %s\n", access_token); // This token is valid for 1 hour
 
     /**
@@ -57,5 +60,7 @@ void app_main(void)
      */
     initWifiSta();
 
-    run_examples();
+    // run_examples();
+    firebase_get_access_token_from_refresh_token(NULL, access_token);
+    printf("Access token: %s\n", access_token); // This token is valid for 1 hour
 }

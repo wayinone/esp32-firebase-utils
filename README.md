@@ -12,7 +12,7 @@ dependencies:
   wayinone_esp32-firebase-utils:
     git: "https://github.com/wayinone/esp32-firebase-utils.git"
     path: "components/esp32_firebase_utils"
-    version: "v0.1.4"
+    version: "v0.2.0"
 ```
 
 Note that, if for some reason, you would like to change the version, you will have to remove the `dependencies.lock` file from your project's root folder, and rebuild again (either by running command `idf.py reconfigure` or simply `idf.py build`)
@@ -33,7 +33,7 @@ Currently the APIs here includes:
 
 * **Acquire access token with refresh token**
   * Note that refresh token will never expired until you delete the corresponding private key from (GCP -> service account -> key)
-  * User of this should store the refresh key in `menuconfig` -> FIREBASE_REFRESH_TOKEN
+  * In this example, the refresh token (the first argument) is provided as NULL because the refresh token has been set in `CONFIG_FIREBASE_REFRESH_TOKEN`. Otherwise, user needs to provide the refresh token as the first argument.
   
     At global scope:
 
@@ -42,11 +42,11 @@ Currently the APIs here includes:
 
     char *access_token[1024]
     ```
-    
+
     In your function block:
-    
+
     ```cpp
-    firebase_get_access_token_from_refresh_token(access_token);
+    firebase_get_access_token_from_refresh_token(NULL, access_token);
     printf("Access token: %s\n", access_token); // This token is valid for 1 hour
     ```
 
@@ -66,7 +66,7 @@ Currently the APIs here includes:
     ```
 
   * **`firestore_patch`**: Patch a document (insert, update, or overwrite)
-    
+
     There are two modes available:
     * mode `FIRESTORE_DOC_UPSERT`:  Upsert (insert new fields or update existed fields. This will create document if not existed)
   
@@ -118,8 +118,8 @@ Currently the APIs here includes:
 
 * enable SPIRAM
 * mbedTLS -> Memory allocation strategy -> enable External SPIRAM
-* Component config->ESP LTS-> (enable these options) 
-  * "Allow potentially insecure options" and then, 
+* Component config->ESP LTS-> (enable these options)
+  * "Allow potentially insecure options" and then,
   * "Skip server verification by default": This skip the https request certificate process
 
 i.e.
