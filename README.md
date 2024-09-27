@@ -12,7 +12,7 @@ dependencies:
   wayinone_esp32-firebase-utils:
     git: "https://github.com/wayinone/esp32-firebase-utils.git"
     path: "components/esp32_firebase_utils"
-    version: "v0.1.4"
+    version: "v0.2.0"
 ```
 
 Note that, if for some reason, you would like to change the version, you will have to remove the `dependencies.lock` file from your project's root folder, and rebuild again (either by running command `idf.py reconfigure` or simply `idf.py build`)
@@ -20,7 +20,9 @@ Note that, if for some reason, you would like to change the version, you will ha
 ## APIs
 
 Note that all the APIs here are wrappers of Firebase's REST API, hence, WIFI is necessary. 
-  * If you don't have WIFI setup in your project, you can simply include my `components/wifi` (by copy paste or use `idf_component.yaml` like above, with `path: "components/wifi`. Then set your WIFI's SSID and password in `idf.py menuconfig`-> WIFI STA Configuration)
+Also please make sure you have configure the project with the setting described in section [Configuration for this Component](#configuration-for-this-component)
+
+* If you don't have WIFI setup in your project, you can simply include my `components/wifi` (by copy paste or use `idf_component.yaml` like above, with `path: "components/wifi`. Then set your WIFI's SSID and password in `idf.py menuconfig`-> WIFI STA Configuration)
   
     ```cpp
     #include "station_mode.h"
@@ -31,15 +33,22 @@ Currently the APIs here includes:
 
 * **Acquire access token with refresh token**
   * Note that refresh token will never expired until you delete the corresponding private key from (GCP -> service account -> key)
-  * User of this should store the refresh key in `menuconfig` -> FIREBASE_REFRESH_TOKEN
+  * In this example, the refresh token (the first argument) is provided as NULL because the refresh token has been set in `CONFIG_FIREBASE_REFRESH_TOKEN`. Otherwise, user needs to provide the refresh token as the first argument.
   
-  ```cpp
-  #include "firebase_auth.h"
+    At global scope:
 
-  char *access_token = (char *)heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
-  firebase_get_access_token_from_refresh_token(access_token);
-  printf("Access token: %s\n", access_token); // This token is valid for 1 hour
-  ```
+    ```cpp
+    #include "firebase_auth.h"
+
+    char *access_token[1024]
+    ```
+
+    In your function block:
+
+    ```cpp
+    firebase_get_access_token_from_refresh_token(NULL, access_token);
+    printf("Access token: %s\n", access_token); // This token is valid for 1 hour
+    ```
 
 * **Firestore data IO**
   
@@ -57,7 +66,7 @@ Currently the APIs here includes:
     ```
 
   * **`firestore_patch`**: Patch a document (insert, update, or overwrite)
-    
+
     There are two modes available:
     * mode `FIRESTORE_DOC_UPSERT`:  Upsert (insert new fields or update existed fields. This will create document if not existed)
   
@@ -102,15 +111,15 @@ Currently the APIs here includes:
 
 ### Firebase Configuration
 
- * For WIFI setup: `WIFI STA Configuration`
- * For Firebase setup: `Firebase Utils Configuration`
+* For WIFI setup: `WIFI STA Configuration`
+* For Firebase setup: `Firebase Utils Configuration`
 
 ### HTTP Client (MbedTLS) Configuration
 
 * enable SPIRAM
 * mbedTLS -> Memory allocation strategy -> enable External SPIRAM
-* Component config->ESP LTS-> (enable these options) 
-  * "Allow potentially insecure options" and then, 
+* Component config->ESP LTS-> (enable these options)
+  * "Allow potentially insecure options" and then,
   * "Skip server verification by default": This skip the https request certificate process
 
 i.e.
@@ -130,26 +139,24 @@ CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
 
 ## How to Run Examples
 
-First, you need to fill the configuration, see the Menu Configuration for this Component Section
+First, you need to fill the configuration, see the section [Configuration for this Component Section](#configuration-for-this-component)
 
 Then you can edit the example in `main/main.c`, and run through usually `idf.py build flash` process.
 
 ## Coding Philosophy
 
-* While developing this, I realize that even 100 bytes variable shouldn't be put into stack, so I make sure that most of the long string with SPIRAM.
 * I will assume user that use this code wouldn't want to flash the code every time because of the change google API website certificate. So I remove the certification part from the http request.
 
 ## Credits
 
-* The firestore part of code was simplified from [kaizoku-oh/firestore](https://github.com/kaizoku-oh).
+* The firestore IO part of code was simplified from [kaizoku-oh/firestore](https://github.com/kaizoku-oh).
 
 ## About GCP's Refresh Token
 
 * A refresh token can be generated with a service account. The usage of it is that it allows devices write to Google's service like Firestore without user to log in (the log in token only valid for 1 hour).
 * A single service account (with sufficient roles attached) can generate a private key, and generate multiple refreshed accounts, each with a special JWT subject (`uid`), that can be used in Authentication.
   * E.g. in Firestore Rules, you can use `request.auth.uid` keyword to ensure the JWT subject is allowed in the service.
-* In this repo we also provides a cli to help you get refresh token from a private key. See [here](gcp_auth/README.md).
-
+* In this repo we also provides a command make from Python to help you get refresh token from a private key. See [here](gcp_auth/README.md).
 
 ## License
 

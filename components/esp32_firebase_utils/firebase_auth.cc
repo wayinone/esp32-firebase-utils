@@ -5,9 +5,9 @@
  * Note that I deliberately remove the requirement for website certificate verification
  * So that I can make a request to the Firestore API without having to use the root certificate
  * Remember to go to `idf.py menuconfig` and set
- * Component config->ESP LTS-> (enable these options) "Allow potentially insecure options" and 
+ * Component config->ESP LTS-> (enable these options) "Allow potentially insecure options" and
  * then "Skip server verification by default"
- * 
+ *
  */
 
 #include "firebase_auth.h"
@@ -20,7 +20,10 @@
 
 #define FIREBASE_TOKEN_REQUEST_HOSTNAME "securetoken.googleapis.com"
 #define FIREBASE_AUTH_PATH "/v1/token?key=" FIREBASE_API_KEY
-#define FIREBASE_AUTH_BODY "grant_type=refresh_token&refresh_token=" FIREBASE_REFRESH_TOKEN
+
+static const char FIREBASE_AUTH_BODY_FORMAT[] = "grant_type=refresh_token&refresh_token=%s";
+static constexpr int FIREBASE_AUTH_BODY_SIZE = 42 + 1024 + 1;
+static char auth_body[FIREBASE_AUTH_BODY_SIZE];
 
 static const char *TAG = "FB_AUTH";
 static const char *TAG_EVENT_HANDLER = "FB_EVENT";
@@ -43,7 +46,6 @@ void firebase_auth_cleanup()
   RECEIVE_BODY = NULL;
 }
 
-
 static esp_err_t firebase_http_event_handler(esp_http_client_event_t *client_event);
 
 /**
@@ -64,7 +66,27 @@ void get_value_from_json(const char *json, const char *key, char *value)
   cJSON_Delete(root);
 }
 
-esp_err_t abstract_auth_request(char *post_field)
+esp_err_t set_auth_body(char *refresh_token)
+{
+  // if refresh_token is NULL
+  if (refresh_token == NULL)
+  {
+#ifdef CONFIG_FIREBASE_REFRESH_TOKEN
+    ESP_LOGI(TAG, "Using the refresh token from the configuration");
+    snprintf(auth_body, FIREBASE_AUTH_BODY_SIZE, FIREBASE_AUTH_BODY_FORMAT, CONFIG_FIREBASE_REFRESH_TOKEN);
+#else
+    ESP_LOGE(TAG, "The refresh token cannot be NULL, if CONFIG_FIREBASE_REFRESH_TOKEN is not set");
+    return ESP_FAIL;
+#endif
+  }
+  else
+  {
+    snprintf(auth_body, FIREBASE_AUTH_BODY_SIZE, FIREBASE_AUTH_BODY_FORMAT, refresh_token);
+  }
+  return ESP_OK;
+}
+
+esp_err_t abstract_auth_request()
 {
 
   esp_http_client_config_t http_config = {
@@ -82,7 +104,7 @@ esp_err_t abstract_auth_request(char *post_field)
   ESP_LOGI(TAG, "http config initialized");
 
   esp_http_client_set_header(firebase_client_handle, "Content-Type", "application/x-www-form-urlencoded");
-  esp_http_client_set_post_field(firebase_client_handle, post_field, strlen(post_field));
+  esp_http_client_set_post_field(firebase_client_handle, auth_body, strlen(auth_body));
 
   ESP_LOGI(TAG, "http headers set up! Making request...");
   if (esp_http_client_perform(firebase_client_handle) != ESP_OK)
@@ -113,30 +135,36 @@ esp_err_t abstract_auth_request(char *post_field)
   // the auth request should return a json object of size about 1870 bytes
   ESP_LOGD(TAG, "total received body length: %d", strlen(RECEIVE_BODY));
 
-
   esp_http_client_cleanup(firebase_client_handle);
   receive_body_len = 0;
   ESP_LOGI(TAG, "HTTP request cleanup");
   return ESP_OK;
 }
 
-esp_err_t firebase_get_access_token_from_refresh_token(char *access_token)
+esp_err_t firebase_get_access_token_from_refresh_token(char *refresh_token, char *access_token)
 {
   firebase_auth_init();
-  if (abstract_auth_request(FIREBASE_AUTH_BODY) != ESP_OK)
+
+  if (set_auth_body(refresh_token) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to set the auth body (or say failed to get the refresh token)");
+    return ESP_FAIL;
+  }
+
+  if (abstract_auth_request() != ESP_OK)
   {
     ESP_LOGE(TAG, "Failed to get the access token from the refresh token");
     return ESP_FAIL;
   }
   get_value_from_json(RECEIVE_BODY, "id_token", access_token);
-  
+
   firebase_auth_cleanup();
   return ESP_OK;
 }
 
 /**
  * @brief HTTP event handler for FirebaseAPI
- * 
+ *
  * TODO: this is exactly copy-pasted from firebase_auth.cc, I can't find a way to make this a shared function
  * (because there is a static variable `receive_body_len` that is used in the function)
  */

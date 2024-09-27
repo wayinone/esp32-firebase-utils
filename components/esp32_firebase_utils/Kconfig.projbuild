@@ -2,21 +2,31 @@
 
 menu "Firebase Utils Configuration"
 
-    config FIREBASE_REFRESH_TOKEN
-        string "Refresh Token"
-        default ""
+    config USE_CONFIG_FOR_FIREBASE_REFRESH_TOKEN
+        bool "Use Config for Firebase Auth Secrete"
+        default n
         help
-            Refresh token is used to get the access token for the device. The token is used to authenticate the device with the Firebase sevice, such as Firestore, etc.
-            For more info, see: https://github.com/wayinone/esp32-firebase-utils/blob/main/gcp_auth/README.md
+            If you want to use the config to store refresh token, please enable this option.            
 
-            The refresh token should add a JWT subject with a unique string, e.g. the device ID. This is useful to identify the device in the Firebase database.
+        config FIREBASE_REFRESH_TOKEN
+            string "Refresh Token"
+            default ""
+            depends on USE_CONFIG_FOR_FIREBASE_REFRESH_TOKEN
+            help
+                Optional: Refresh token is used to get the access token for the device. 
+                If set this option, you can use NULL to replace the `refresh_token` parameter in the firebase_get_access_token_from_refresh_token function.
+                The token is used to authenticate the device with the Firebase sevice, such as Firestore, etc.
+                For more info, see: https://github.com/wayinone/esp32-firebase-utils/blob/main/gcp_auth/README.md
 
-    config FIREBASE_REFRESH_TOKEN_JWT_SUBJECT
-        string "Refresh Token JWT Subject (Optional)"
-        default ""
-        help 
-            Optional: This is not used in this component. However, this should be used in projects that include this component. Use this to set your firestore path provides developer a 
-            convinent way to set a Firebase Security Rules. e.g. `request.auth.uid == <the JTW subject stored here>`
+                The refresh token should add a JWT subject with a unique string, e.g. the device ID. This is useful to identify the device in the Firebase database.
+
+        config FIREBASE_REFRESH_TOKEN_JWT_SUBJECT
+            string "Refresh Token JWT Subject (Optional)"
+            default ""
+            depends on USE_CONFIG_FOR_FIREBASE_REFRESH_TOKEN
+            help 
+                Optional: This is not used in this component. However, this should be used in projects that include this component. Use this to set your firestore path provides developer a 
+                convinent way to set a Firebase Security Rules. e.g. `request.auth.uid == <the JWT subject stored here>`
     
     config FIREBASE_PROJECT_ID
         string "Project ID"
