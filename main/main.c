@@ -60,7 +60,6 @@ void app_main(void)
      */
     initWifiSta();
 
-    // run_examples();
-    firebase_get_access_token_from_refresh_token(NULL, access_token);
-    printf("Access token: %s\n", access_token); // This token is valid for 1 hour
+    run_examples();
+    
 }
